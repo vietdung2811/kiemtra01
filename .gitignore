@@ -1,0 +1,96 @@
+# ==============================
+# Python
+# ==============================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==============================
+# Django
+# ==============================
+*.log
+local_settings.py
+
+# SQLite (dev only - nếu có)
+db.sqlite3
+db.sqlite3-journal
+
+# Media & Static
+media/
+staticfiles/
+
+# ==============================
+# Environment variables (IMPORTANT)
+# ==============================
+.env
+.env.*
+*.env
+
+# ==============================
+# Virtual environments
+# ==============================
+venv/
+env/
+ENV/
+.venv/
+
+# ==============================
+# Build / packaging
+# ==============================
+build/
+dist/
+*.egg-info/
+.eggs/
+*.whl
+
+# ==============================
+# Testing / coverage
+# ==============================
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# ==============================
+# IDE / Editor
+# ==============================
+.vscode/
+.idea/
+
+# ==============================
+# OS files
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Docker
+# ==============================
+docker-compose.override.yml
+*.pid
+*.seed
+*.pid.lock
+
+# Nếu có mount volume local (optional)
+docker-data/
+postgres-data/
+mysql-data/
+
+# ==============================
+# Logs
+# ==============================
+logs/
+*.log
+
+# ==============================
+# Secrets (VERY IMPORTANT)
+# ==============================
+secrets.json
+*.pem
+*.key
+*.crt
+
+# ==============================
+# Node (nếu dùng frontend)
+# ==============================
+node_modules/

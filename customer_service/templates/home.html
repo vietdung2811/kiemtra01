@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Shopping Cart</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f8ff; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #e6f2ff; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-catalog { background-color: #28a745; color: white; }
+        .btn-logout { background-color: #6c757d; color: white; }
+        .btn-checkout { background-color: #007bff; color: white; margin-top: 20px; width: 100%; font-size: 18px; }
+        .btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Your Shopping Cart</h1>
+            <div>
+                <span>Logged in as: {{ user.username }}</span>
+                <a href="/customer/search/" class="btn btn-catalog">Shop More</a>
+                <a href="/customer/orders/" class="btn btn-cart" style="background-color: #17a2b8;">My Orders</a>
+                <a href="http://127.0.0.1:8002/login/" class="btn btn-logout" style="background-color: #dc3545; color: white;">Log in as Staff</a>
+                <a href="/customer/logout/" class="btn btn-logout">Logout</a>
+            </div>
+        </div>
+
+        {% if items %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Type</th>
+                    <th>Product ID</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.product_type|title }}</td>
+                    <td>{{ item.product_id }}</td>
+                    <td>{{ item.quantity }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <a href="/customer/checkout/" class="btn btn-checkout" style="text-align: center;">Proceed to Checkout</a>
+        {% else %}
+        <p style="text-align: center; margin-top: 40px; color: #666;">Your cart is empty.</p>
+        <p style="text-align: center;"><a href="/customer/search/" class="btn btn-catalog">Go to Catalog</a></p>
+        {% endif %}
+    </div>
+</body>
+</html>
