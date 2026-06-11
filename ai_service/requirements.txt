@@ -1,0 +1,9 @@
+django>=5.0
+requests
+django-cors-headers
+djangorestframework
+sentence-transformers
+numpy
+scikit-learn
+pandas
+neo4j

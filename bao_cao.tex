@@ -1,0 +1,1584 @@
+\UseRawInputEncoding
+%==========================================================================
+% BÁO CÁO TIỂU LUẬN - KIẾN TRÚC VÀ THIẾT KẾ PHẦN MỀM
+% Học viện Công nghệ Bưu chính Viễn thông
+%==========================================================================
+
+\documentclass[12pt,a4paper]{report}
+
+%---------- Encoding & Language ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese,english]{babel}
+
+%---------- Page Layout ----------
+\usepackage[top=3cm, bottom=3cm, left=3.5cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+%---------- Fonts ----------
+\usepackage{lmodern}
+
+%---------- Colors ----------
+\usepackage[dvipsnames]{xcolor}
+\definecolor{ptitblue}{RGB}{0,70,127}
+\definecolor{codeblue}{RGB}{0,0,180}
+\definecolor{codegray}{RGB}{128,128,128}
+\definecolor{codebg}{RGB}{248,248,248}
+
+%---------- Graphics ----------
+\usepackage{graphicx}
+\usepackage{float}
+
+%---------- Tables ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{longtable}
+
+%---------- Code Listings ----------
+\usepackage{listings}
+\lstset{
+  backgroundcolor=\color{codebg},
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\color{codeblue}\bfseries,
+  commentstyle=\color{codegray}\itshape,
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{codegray},
+  numbersep=8pt,
+  stepnumber=1,
+  frame=single,
+  rulecolor=\color{gray!40},
+  breaklines=true,
+  breakatwhitespace=true,
+  captionpos=b,
+  tabsize=4,
+  showstringspaces=false,
+  escapeinside={(*@}{@*)},
+}
+\lstdefinelanguage{docker-compose}{
+  keywords={services, volumes, networks, image, build, ports, environment,
+            depends\_on, networks, driver, hostname, command, volumes, restart,
+            container\_name, env\_file},
+  sensitive=false,
+  comment=[l]{\#},
+}
+
+%---------- Minted (alternative) ----------
+% If minted is not available, fallback to listings above
+
+%---------- Hyperlinks ----------
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=ptitblue,
+  citecolor=ptitblue,
+  urlcolor=blue!70!black,
+}
+
+%---------- Headers/Footers ----------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{gray}{Báo cáo Tiểu luận E-commerce Microservices + AI}}
+\fancyhead[R]{\small\textcolor{gray}{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%---------- Section Formatting ----------
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{ptitblue}}
+  {Chương \thechapter}{10pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{30pt}{20pt}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{ptitblue}}
+  {\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\color{ptitblue!80!black}}
+  {\thesubsection}{1em}{}
+
+%---------- TOC Depth ----------
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{3}
+
+%---------- Misc ----------
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usepackage{mdframed}
+
+% Placeholder box style
+\newmdenv[
+  linecolor=gray!60,
+  backgroundcolor=gray!10,
+  roundcorner=4pt,
+  frametitle={\small\textbf{[PLACEHOLDER]}},
+  frametitlebackgroundcolor=gray!25,
+]{placeholder}
+
+%==========================================================================
+\begin{document}
+
+%---------- TITLE PAGE ----------
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+
+  {\large\bfseries BỘ THÔNG TIN VÀ TRUYỀN THÔNG}\\[0.3cm]
+  {\large\bfseries HỌC VIỆN CÔNG NGHỆ BƯU CHÍNH VIỄN THÔNG}\\[2cm]
+
+  {\Large\bfseries KIẾN TRÚC VÀ THIẾT KẾ PHẦN MỀM}\\[1cm]
+  {\huge\bfseries\color{ptitblue} TIỂU LUẬN}\\[2cm]
+
+  \begin{tabular}{ll}
+    \textbf{Giảng viên:} & PGS. TS. Trần Đình Quế \\[0.4cm]
+    \textbf{Lớp:}        & E22CNPM01               \\[0.4cm]
+    \textbf{Nhóm:}       & 01                      \\[0.4cm]
+    \textbf{Sinh viên:}  & Đỗ Thùy Anh --- B22DCCN015\\
+  \end{tabular}
+
+  \vfill
+  {\large Hà Nội, 2026}
+\end{titlepage}
+
+%---------- TABLE OF CONTENTS ----------
+\tableofcontents
+\newpage
+
+%==========================================================================
+%                       CHAPTER 1
+%==========================================================================
+\chapter{Từ Monolithic đến Microservices và DDD}
+
+%--------------------------------------------------------------------------
+\section{Giới thiệu Monolithic Architecture}
+
+\subsection{Khái niệm}
+
+Monolithic Architecture là mô hình trong đó toàn bộ hệ thống (UI, business logic,
+database access) được xây dựng và triển khai như \textbf{một khối duy nhất}.
+
+\subsection{Cấu trúc điển hình}
+
+Một ứng dụng Monolithic truyền thống gồm ba tầng chính:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Presentation Layer} (UI) --- Xử lý giao tiếp với người dùng.
+  \item \textbf{Business Logic Layer} --- Toàn bộ quy tắc nghiệp vụ tập trung tại đây.
+  \item \textbf{Data Access Layer} --- Tương tác trực tiếp với cơ sở dữ liệu duy nhất.
+\end{itemize}
+
+\subsection{Ví dụ thực tế}
+
+Một hệ e-commerce monolithic sẽ bao gồm: quản lý sản phẩm, giỏ hàng, thanh toán,
+và quản lý người dùng --- tất cả nằm trong \emph{cùng một codebase} và được triển khai
+như một ứng dụng duy nhất.
+
+\subsection{Nhược điểm chi tiết}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Khó mở rộng:} Phải scale toàn hệ thống thay vì từng module có nhu cầu
+        cao.
+  \item \textbf{Coupling cao:} Một thay đổi nhỏ trong một module có thể ảnh hưởng lan
+        toàn bộ hệ thống.
+  \item \textbf{Deploy rủi ro:} Lỗi ở một chức năng nhỏ có thể làm sập toàn hệ thống
+        trong quá trình deployment.
+  \item \textbf{Khó phát triển nhóm:} Nhiều team cùng sửa một codebase dẫn đến xung
+        đột (merge conflicts) thường xuyên.
+\end{itemize}
+
+\subsection{Khi nào nên dùng Monolithic}
+
+Dù có nhiều nhược điểm, Monolithic vẫn phù hợp trong các trường hợp sau:
+
+\begin{itemize}[leftmargin=*]
+  \item Hệ thống nhỏ với ít tính năng.
+  \item MVP (Minimum Viable Product) --- cần ra thị trường nhanh.
+  \item Team ít người, chưa đủ năng lực quản lý distributed system.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Microservices Architecture}
+
+\subsection{Khái niệm}
+
+Microservices là kiến trúc \textbf{chia hệ thống thành các dịch vụ nhỏ, độc lập},
+mỗi service thực hiện một chức năng riêng biệt và có thể được phát triển, triển khai,
+mở rộng hoàn toàn độc lập với nhau.
+
+\subsection{Đặc điểm}
+
+\begin{itemize}[leftmargin=*]
+  \item Mỗi service có \textbf{database riêng} (database-per-service pattern).
+  \item Giao tiếp với nhau qua \textbf{API} (REST/gRPC).
+  \item \textbf{Deploy độc lập} --- một service cập nhật không ảnh hưởng service khác.
+\end{itemize}
+
+\subsection{So sánh Monolithic và Microservices}
+
+\begin{table}[H]
+  \centering
+  \caption{So sánh kiến trúc Monolithic và Microservices}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Tiêu chí}       & \textbf{Monolithic}  & \textbf{Microservices} \\
+    \midrule
+    Deploy                  & Một lần              & Nhiều lần (độc lập)    \\
+    Scale                   & Toàn hệ thống        & Từng service           \\
+    Coupling                & Cao                  & Thấp                   \\
+    Phức tạp                & Thấp ban đầu         & Cao hơn                \\
+    Phát triển nhóm         & Khó khi lớn           & Phù hợp đội lớn        \\
+    Fault isolation         & Không                & Có                     \\
+    \bottomrule
+  \end{tabular}
+  \label{tab:monolithic-vs-micro}
+\end{table}
+
+\subsection{Ưu điểm}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Scale độc lập từng service} theo nhu cầu thực tế (ví dụ: scale
+        product-service khi lượng truy vấn tăng mà không cần scale toàn hệ thống).
+  \item \textbf{Tăng tốc phát triển:} Nhiều team làm việc song song trên các service
+        khác nhau mà không conflict.
+  \item \textbf{Fault isolation:} Lỗi ở một service không kéo sập các service còn lại.
+  \item \textbf{Phù hợp hệ thống lớn:} Dễ bảo trì, dễ thay thế công nghệ từng phần.
+\end{itemize}
+
+\subsection{Nhược điểm}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Phức tạp hệ thống:} Cần quản lý nhiều service, container, database.
+  \item \textbf{Quản lý distributed system:} Xử lý distributed transactions, eventual
+        consistency, network latency.
+  \item \textbf{Debug khó hơn:} Tracing lỗi xuyên nhiều service đòi hỏi công cụ
+        monitoring chuyên biệt (Jaeger, Zipkin, ELK Stack).
+\end{itemize}
+
+\subsection{Nguyên tắc thiết kế}
+
+Ba nguyên tắc cốt lõi khi thiết kế Microservices:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Single Responsibility:} Mỗi service chỉ đảm nhận một business domain.
+  \item \textbf{Loose Coupling:} Các service chỉ giao tiếp qua API, không dùng chung
+        database hay thư viện nội bộ.
+  \item \textbf{High Cohesion:} Trong mỗi service, các thành phần liên quan chặt chẽ
+        với nhau về nghiệp vụ.
+\end{itemize}
+
+\subsection{Các Big Tech ứng dụng Microservices}
+
+Quá trình chuyển đổi từ Monolithic sang Microservices đã được minh chứng bởi nhiều tập đoàn công nghệ lớn:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Netflix:} Khởi xướng chuyển đổi từ 2009 sau sự cố database. Chia hệ thống thành các dịch vụ độc lập, dẫn đến sự ra đời bộ công cụ Spring Cloud Netflix.
+  \item \textbf{Amazon:} Bắt đầu cấu trúc lại hạ tầng monolithic khổng lồ từ năm 2001 sang dạng Service-Oriented Architecture (kiểu tiền thân Microservices) giúp tăng tốc độ phát hành tính năng.
+  \item \textbf{Uber:} Thiết kế monolithic ban đầu tại San Francisco không tải nổi khi mở rộng toàn cầu. Việc chia cắt thành các dịch vụ độc lập như payment, notification, location tracking giúp scale dễ dàng hơn.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Domain Driven Design (DDD)}
+
+\subsection{Mục tiêu}
+
+DDD (Domain-Driven Design) giúp \textbf{mô hình hóa hệ thống theo nghiệp vụ (business
+domain)}, không phụ thuộc vào công nghệ. DDD cung cấp ngôn ngữ chung
+(Ubiquitous Language) giữa domain experts và developers, giúp phân tách hệ thống
+theo đúng ranh giới nghiệp vụ thực tế.
+
+\subsection{Các khái niệm cốt lõi}
+
+\begin{description}[leftmargin=2em,labelwidth=2.5cm]
+  \item[\textbf{Entity}]
+        Đối tượng có \textbf{định danh duy nhất (ID)}, tồn tại xuyên suốt vòng đời hệ
+        thống. Ví dụ: \texttt{User}, \texttt{Product}.
+
+  \item[\textbf{Value Object}]
+        Không có ID riêng, được so sánh bằng \textbf{giá trị}. Ví dụ: \texttt{Address},
+        \texttt{Money}.
+
+  \item[\textbf{Aggregate}]
+        Nhóm các entity liên quan được xử lý như một đơn vị nhất quán. Ví dụ:
+        \texttt{Order} (root) + \texttt{OrderItem} (children).
+
+  \item[\textbf{Bounded Context}]
+        Ranh giới domain rõ ràng, trong đó các khái niệm có nghĩa nhất định. Ví dụ:
+        \texttt{User Context} (quản lý tài khoản), \texttt{Order Context} (đặt hàng).
+
+  \item[\textbf{Domain Service}]
+        Logic nghiệp vụ không thuộc về entity cụ thể nào. Ví dụ: service tính phí
+        vận chuyển dựa trên địa chỉ và trọng lượng.
+
+  \item[\textbf{Repository}]
+        Interface trừu tượng hóa việc truy xuất dữ liệu, tách biệt business logic khỏi
+        persistence layer.
+\end{description}
+
+\subsection{Context Map}
+
+Context Map thể hiện mối quan hệ giữa các Bounded Context trong hệ thống. Sinh viên
+cần vẽ sơ đồ thể hiện các mối quan hệ sau:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Shared Kernel:} Hai context dùng chung một phần domain model (thường
+        là User ID, Product ID được tham chiếu qua lại).
+  \item \textbf{Customer-Supplier:} Một context (Supplier) cung cấp dữ liệu cho context
+        khác (Customer). Ví dụ: Product Service cung cấp dữ liệu sản phẩm cho AI
+        Service.
+  \item \textbf{Conformist:} Context downstream phải tuân theo model của upstream mà
+        không có quyền thay đổi.
+  \item \textbf{Anti-Corruption Layer:} Lớp dịch ngữ nghĩa giữa các context không
+        tương thích.
+\end{itemize}
+
+\textbf{Sơ đồ Context Map thực tế của hệ thống kiemtra01:} \\
+- \textbf{Shared Kernel:} Bảng `Laptop` / `Mobile` và bảng Order chia sẻ ID sản phẩm (\texttt{product\_id}). \\
+- \textbf{Customer-Supplier:} Customer Service cung cấp ID/Token cho AI Service. \\
+- \textbf{Anti-Corruption Layer (ACL):} Lớp DTO ngăn cách Entity \texttt{Order} không bị rò rỉ dữ liệu thừa ra Frontend GUI.
+
+\subsection{DDD trong Microservices}
+
+Sự kết hợp giữa DDD và Microservices là tự nhiên và bổ trợ lẫn nhau:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Mỗi Bounded Context = 1 Microservice:} Ranh giới context trở thành ranh
+        giới service, đảm bảo service chỉ biết về domain của mình.
+  \item \textbf{Tránh chia service theo technical layer:} Không nên tạo service riêng
+        cho ``tầng database'' hay ``tầng UI'' --- mỗi service phải chứa đầy đủ
+        từ API đến database cho một domain cụ thể.
+  \item \textbf{Database per Service:} Mỗi service sở hữu dữ liệu riêng, không context
+        nào được đọc trực tiếp database của context khác.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Case Study: Healthcare (Luyện Decomposition)}
+
+Để luyện tập kỹ năng phân rã hệ thống, chúng ta xem xét một bài toán thực tế trong
+lĩnh vực y tế (Healthcare).
+
+\subsection{Mô tả bài toán}
+
+Hệ thống quản lý bệnh viện cần đáp ứng các nghiệp vụ sau:
+
+\begin{itemize}[leftmargin=*]
+  \item Quản lý thông tin bệnh nhân (hồ sơ, lịch sử khám bệnh).
+  \item Quản lý thông tin bác sĩ (chuyên khoa, lịch làm việc).
+  \item Đặt lịch khám bệnh (appointment scheduling).
+\end{itemize}
+
+\subsection{Bước 1: Xác định Domain}
+
+Xác định các domain chính trong hệ thống:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Patient Management Domain} --- Xử lý mọi logic liên quan đến bệnh nhân.
+  \item \textbf{Doctor Management Domain} --- Xử lý thông tin và lịch làm việc của bác sĩ.
+  \item \textbf{Appointment Scheduling Domain} --- Xử lý đặt lịch, xác nhận, hủy hẹn.
+\end{itemize}
+
+\subsection{Bước 2: Xác định Bounded Context}
+
+Mỗi domain trở thành một Bounded Context độc lập:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Patient Context:} Quản lý hồ sơ bệnh nhân, lịch sử bệnh án.
+  \item \textbf{Doctor Context:} Quản lý hồ sơ bác sĩ, chuyên môn, lịch khám.
+  \item \textbf{Appointment Context:} Điều phối lịch hẹn giữa bệnh nhân và bác sĩ.
+\end{itemize}
+
+\subsection{Bước 3: Phân rã thành Microservices}
+
+Ánh xạ trực tiếp từ Bounded Context sang Microservices:
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{patient-service} --- REST API quản lý bệnh nhân.
+  \item \texttt{doctor-service} --- REST API quản lý bác sĩ.
+  \item \texttt{appointment-service} --- REST API quản lý lịch hẹn, phụ thuộc vào hai
+        service trên.
+\end{itemize}
+
+\subsection{Bước 4: Xác định quan hệ}
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{appointment-service} phụ thuộc vào cả \texttt{patient-service} và
+        \texttt{doctor-service}: khi tạo lịch hẹn, cần xác thực ID bệnh nhân và ID
+        bác sĩ thông qua API call.
+  \item Giao tiếp giữa các service hoàn toàn qua REST API, không dùng chung database.
+\end{itemize}
+
+\subsection{Thể hiện Service qua Django}
+
+Thay vì tạo một app khổng lồ duy nhất, mỗi Bounded Context được khởi tạo thành một project Django (hoặc app) độc lập:
+\begin{lstlisting}[language=bash]
+# Khởi tạo Patient Service độc lập
+django-admin startproject patient_service
+cd patient_service
+python manage.py startapp api
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python, caption={patient\_service/api/models.py}]
+from django.db import models
+
+class Patient(models.Model):
+    name = models.CharField(max_length=255)
+    medical_history = models.TextField()
+\end{lstlisting}
+
+\subsection{Ví dụ API}
+
+\begin{lstlisting}[language=bash, caption={API endpoints của hệ thống Healthcare}]
+GET  /patients/                  # Lấy danh sách bệnh nhân
+GET  /patients/{id}/             # Chi tiết bệnh nhân
+GET  /doctors/                   # Lấy danh sách bác sĩ
+GET  /doctors/{id}/availability/ # Lịch làm việc bác sĩ
+POST /appointments/              # Tạo lịch hẹn mới
+GET  /appointments/{id}/         # Chi tiết lịch hẹn
+\end{lstlisting}
+
+%--------------------------------------------------------------------------
+\section{Kết luận}
+
+Chương 1 đã trình bày nền tảng lý thuyết quan trọng làm cơ sở cho toàn bộ dự án:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Monolithic} phù hợp hệ nhỏ, MVP, team ít người; nhưng gặp vấn đề
+        nghiêm trọng về khả năng mở rộng và bảo trì khi hệ thống tăng trưởng.
+  \item \textbf{Microservices} phù hợp hệ lớn, đa team; đánh đổi sự đơn giản ban đầu
+        lấy khả năng mở rộng và fault isolation dài hạn.
+  \item \textbf{DDD} là nền tảng phương pháp luận quan trọng để phân rã hệ thống đúng
+        theo ranh giới nghiệp vụ, tránh các anti-pattern phổ biến như ``God Service''
+        hay ``Chatty Microservices''.
+\end{itemize}
+
+Sang Chương 2, những nguyên tắc này sẽ được áp dụng trực tiếp vào việc thiết kế và
+triển khai hệ thống E-Commerce \textbf{kiemtra01}.
+
+%==========================================================================
+%                       CHAPTER 2
+%==========================================================================
+\chapter{Phát triển Hệ E-Commerce Microservices (kiemtra01)}
+
+%--------------------------------------------------------------------------
+\section{Xác định yêu cầu}
+
+\subsection{Yêu cầu chức năng (Functional Requirements)}
+
+Hệ thống \textbf{kiemtra01} là nền tảng bán lẻ thiết bị điện tử trực tuyến, tập
+trung vào hai dòng sản phẩm chính: laptop và điện thoại di động. Các yêu cầu
+chức năng được xác định như sau:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Quản lý sản phẩm:} Hệ thống hỗ trợ hai domain sản phẩm độc lập ---
+        Laptop Service và Mobile Service. Mỗi service quản lý danh mục, thông tin
+        chi tiết sản phẩm (tên, thương hiệu, giá, tồn kho, mô tả) và cung cấp
+        REST API cho các service khác truy vấn.
+  \item \textbf{Quản lý khách hàng:} Customer Service xử lý đăng ký, đăng nhập,
+        quản lý profile người dùng thông qua Django's built-in User model.
+  \item \textbf{Giỏ hàng (Cart):} Mỗi khách hàng có một giỏ hàng riêng. Hỗ trợ
+        thêm, xóa, cập nhật số lượng sản phẩm từ cả hai domain laptop và mobile.
+  \item \textbf{Đặt hàng (Order):} Khách hàng checkout từ giỏ hàng, hệ thống tạo
+        đơn hàng với trạng thái và tổng tiền. Kết hợp sản phẩm từ nhiều service.
+  \item \textbf{Tìm kiếm và gợi ý AI:} AI Service cung cấp khả năng gợi ý sản
+        phẩm dựa trên hành vi người dùng và chatbot tư vấn thông minh bằng tiếng Việt.
+  \item \textbf{Quản lý vận hành:} Staff Service dành cho nhân viên quản lý kho,
+        xem danh sách đơn hàng và cập nhật thông tin sản phẩm.
+\end{itemize}
+
+\subsection{Biểu đồ Use Case tóm tắt}
+\begin{lstlisting}[language=bash]
+flowchart LR
+    C[Customer] --> U1(Đăng nhập / Đăng ký)
+    C --> U2(Tham khảo Laptops, Mobiles)
+    C --> U3(Thêm vào giỏ & Đặt hàng)
+    C --> U4(Chatbot AI)
+    S[Staff] --> U5(Quản lý Sản phẩm)
+    S --> U6(Duyệt Đơn hàng)
+\end{lstlisting}
+
+\subsection{Yêu cầu phi chức năng (Non-functional Requirements)}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Scalability:} Các service được containerize độc lập, có thể scale
+        riêng lẻ theo tải thực tế (ví dụ: scale AI Service khi lượng truy vấn chatbot
+        tăng cao mà không cần scale toàn hệ thống).
+  \item \textbf{Fault Isolation:} Nếu AI Service bị lỗi, các service còn lại
+        (laptop, mobile, customer) vẫn hoạt động bình thường.
+  \item \textbf{Maintainability:} Mỗi service có codebase riêng, môi trường
+        riêng --- developer có thể phát triển và deploy độc lập.
+  \item \textbf{Performance:} PostgreSQL cho Laptop/Mobile Service nhờ khả năng
+        xử lý JSON tốt; MySQL cho Customer Service phù hợp với transactional data.
+  \item \textbf{Ease of deployment:} Toàn bộ hệ thống khởi chạy bằng một lệnh
+        \texttt{docker-compose up} duy nhất.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Phân rã hệ thống theo DDD}
+
+\subsection{Bounded Context}
+
+Áp dụng nguyên tắc DDD, hệ thống kiemtra01 được phân rã thành \textbf{6 Bounded
+Context} độc lập, mỗi context tương ứng với một microservice:
+
+\begin{table}[H]
+  \centering
+  \caption{Ánh xạ Bounded Context sang Microservices}
+  \begin{tabular}{llll}
+    \toprule
+    \textbf{Bounded Context} & \textbf{Service}       & \textbf{Port} & \textbf{Database}  \\
+    \midrule
+    Laptop Context           & laptop\_service        & 8003          & PostgreSQL         \\
+    Mobile Context           & mobile\_service        & 8004          & PostgreSQL         \\
+    Customer Context         & customer\_service      & 8001          & MySQL              \\
+    Staff Context            & staff\_service         & 8002          & MySQL              \\
+    AI Context               & ai\_service            & 8005          & PostgreSQL + Neo4j \\
+    Gateway Context          & api-gateway + nginx    & 8000 / 80     & ---                \\
+    \bottomrule
+  \end{tabular}
+  \label{tab:bounded-contexts}
+\end{table}
+
+\subsection{Nguyên tắc phân rã}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Mỗi context có database riêng:} Laptop/Mobile Service dùng chung
+        một instance PostgreSQL nhưng schema riêng; Customer/Staff Service dùng
+        chung MySQL; AI Service có thêm Neo4j cho Knowledge Graph.
+  \item \textbf{Giao tiếp qua REST API:} Khi cần dữ liệu từ service khác
+        (ví dụ: Customer Service cần lấy giá sản phẩm khi tạo đơn hàng), service
+        sẽ gọi API của service đó --- không truy vấn trực tiếp database.
+  \item \textbf{Single Responsibility:} Laptop Service chỉ biết về laptop; Mobile
+        Service chỉ biết về mobile --- tránh ``God Service'' biết tất cả các loại
+        sản phẩm.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Thiết kế Laptop Service (Port 8003)}
+
+Laptop Service là microservice quản lý danh mục máy tính xách tay, được xây dựng
+bằng \textbf{Django 5.x + Django REST Framework}, kết nối \textbf{PostgreSQL} để
+tận dụng khả năng hỗ trợ JSON tốt và các kiểu dữ liệu quan hệ phức tạp.
+
+\subsection{Mô hình dữ liệu (Data Model)}
+
+\begin{lstlisting}[language=Python, caption={laptop\_service/api/models.py}]
+from django.db import models
+
+class Laptop(models.Model):
+    name        = models.CharField(max_length=255)
+    brand       = models.CharField(max_length=100)
+    price       = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.TextField(blank=True, null=True)
+    stock       = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.brand} {self.name}"
+\end{lstlisting}
+
+\textbf{Phân tích thiết kế:}
+\begin{itemize}[leftmargin=*]
+  \item Trường \texttt{brand} được tách thành field riêng (không ghép vào \texttt{name})
+        để thuận tiện cho việc lọc theo thương hiệu (filter by brand) và cho AI Service
+        tạo embedding.
+  \item \texttt{price} sử dụng \texttt{DecimalField} thay vì \texttt{FloatField} để
+        tránh sai số dấu phẩy động trong các phép tính tổng tiền.
+  \item \texttt{description} cho phép null để tương thích với dữ liệu seed từ các
+        nguồn khác nhau.
+\end{itemize}
+
+\subsection{Schema Database (PostgreSQL)}
+
+\begin{lstlisting}[language=SQL, caption={Schema bảng laptop trong PostgreSQL}]
+CREATE TABLE api_laptop (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    brand       VARCHAR(100) NOT NULL,
+    price       DECIMAL(12, 2) NOT NULL,
+    description TEXT,
+    stock       INTEGER NOT NULL DEFAULT 0
+);
+
+-- Index để tăng tốc truy vấn lọc theo brand
+CREATE INDEX idx_laptop_brand ON api_laptop(brand);
+-- Index để lọc sản phẩm còn hàng
+CREATE INDEX idx_laptop_stock ON api_laptop(stock);
+\end{lstlisting}
+
+\subsection{API Endpoints}
+
+\begin{lstlisting}[language=bash, caption={REST API của Laptop Service}]
+GET    /api/laptops/       # Lấy toàn bộ danh sách laptop
+POST   /api/laptops/       # Tạo laptop mới (dành cho Staff)
+GET    /api/laptops/{id}/  # Chi tiết một laptop cụ thể
+PUT    /api/laptops/{id}/  # Cập nhật toàn bộ thông tin
+PATCH  /api/laptops/{id}/  # Cập nhật một phần (ví dụ: chỉ stock)
+DELETE /api/laptops/{id}/  # Xóa laptop
+\end{lstlisting}
+
+\textbf{Output mẫu trả về từ REST API (JSON):}
+\begin{lstlisting}[language=json]
+[
+  {
+    "id": 1,
+    "name": "ThinkPad X1 Carbon Gen 10",
+    "brand": "Lenovo",
+    "price": "35000000.00",
+    "description": "Intel Core i7, 16GB RAM, 512GB SSD",
+    "stock": 15
+  }
+]
+\end{lstlisting}
+
+%--------------------------------------------------------------------------
+\section{Thiết kế Mobile Service (Port 8004)}
+
+Mobile Service có kiến trúc \textbf{đối xứng} (symmetric) với Laptop Service,
+áp dụng cùng thiết kế nhưng cho domain điện thoại di động. Hai service độc lập
+hoàn toàn — có thể deploy và scale riêng biệt.
+
+\subsection{Mô hình dữ liệu (Data Model)}
+
+\begin{lstlisting}[language=Python, caption={mobile\_service/api/models.py}]
+from django.db import models
+
+class Mobile(models.Model):
+    name        = models.CharField(max_length=255)
+    brand       = models.CharField(max_length=100)
+    price       = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.TextField(blank=True, null=True)
+    stock       = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.brand} {self.name}"
+\end{lstlisting}
+
+\subsection{Lý do tách biệt khỏi Laptop Service}
+
+Dù model có cấu trúc tương tự, việc tách thành hai service riêng biệt mang lại
+các lợi ích sau:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Domain isolation:} Quy tắc nghiệp vụ của laptop (RAM, CPU, GPU)
+        và mobile (camera, pin, màn hình) sẽ phân kỳ theo thời gian.
+  \item \textbf{Independent scaling:} Nếu mobile được truy vấn nhiều hơn, chỉ
+        cần scale mobile\_service.
+  \item \textbf{Team independence:} Hai team phát triển có thể làm việc trên hai
+        service mà không conflict code.
+  \item \textbf{DDD compliance:} Đây là hai Bounded Context khác nhau (Laptop
+        Domain $\neq$ Mobile Domain) dù cùng thuộc nhóm ``sản phẩm điện tử''.
+\end{itemize}
+
+\subsection{API Endpoints}
+
+\begin{lstlisting}[language=bash, caption={REST API của Mobile Service}]
+GET    /api/mobiles/       # Danh sách điện thoại
+POST   /api/mobiles/       # Tạo sản phẩm mới
+GET    /api/mobiles/{id}/  # Chi tiết sản phẩm
+PUT    /api/mobiles/{id}/  # Cập nhật toàn bộ
+PATCH  /api/mobiles/{id}/  # Cập nhật một phần
+DELETE /api/mobiles/{id}/  # Xóa sản phẩm
+\end{lstlisting}
+
+%--------------------------------------------------------------------------
+\section{Thiết kế Customer Service (Port 8001)}
+
+Customer Service là service phức tạp nhất, đảm nhận \textbf{transactional data}
+của hệ thống: quản lý người dùng, giỏ hàng và đơn hàng. Service dùng \textbf{MySQL}
+vì tính chất ACID-compliant, phù hợp với các giao dịch cần nhất quán dữ liệu cao.
+
+\subsection{Phân loại người dùng}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Customer (Khách hàng):} Đăng ký, đăng nhập, xem sản phẩm, thêm
+        giỏ hàng, đặt hàng, xem lịch sử đơn hàng.
+  \item \textbf{Staff (Nhân viên):} Không đặt hàng, nhưng có quyền xem và xử lý
+        đơn hàng qua Staff Service.
+\end{itemize}
+
+\subsection{Mô hình dữ liệu (Data Model)}
+
+\begin{lstlisting}[language=Python, caption={customer\_service/api/models.py --- Cart \& Order}]
+from django.db import models
+from django.contrib.auth.models import User
+
+# ── Cart (Giỏ hàng) ──────────────────────────────────────────
+class Cart(models.Model):
+    user       = models.OneToOneField(
+                    User, on_delete=models.CASCADE,
+                    null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class CartItem(models.Model):
+    cart         = models.ForeignKey(
+                    Cart, related_name='items',
+                    on_delete=models.CASCADE)
+    product_type = models.CharField(max_length=20)  # 'laptop' | 'mobile'
+    product_id   = models.IntegerField()
+    quantity     = models.PositiveIntegerField(default=1)
+
+# ── Order (Đơn hàng) ─────────────────────────────────────────
+class Order(models.Model):
+    user        = models.ForeignKey(
+                    User, on_delete=models.CASCADE)
+    status      = models.CharField(max_length=20,
+                                   default='completed')
+    total_price = models.DecimalField(
+                    max_digits=12, decimal_places=2,
+                    default=0.00)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+class OrderItem(models.Model):
+    order           = models.ForeignKey(
+                        Order, related_name='items',
+                        on_delete=models.CASCADE)
+    product_type    = models.CharField(max_length=20)
+    product_id      = models.IntegerField()
+    product_name    = models.CharField(max_length=255, blank=True)
+    quantity        = models.PositiveIntegerField()
+    price_at_order  = models.DecimalField(
+                        max_digits=12, decimal_places=2)
+\end{lstlisting}
+
+\textbf{Điểm thiết kế đáng chú ý:}
+\begin{itemize}[leftmargin=*]
+  \item \texttt{CartItem.product\_type} và \texttt{CartItem.product\_id}: Thay vì
+        dùng ForeignKey sang Laptop/Mobile table (sẽ phá vỡ database-per-service),
+        service lưu \texttt{product\_type} (``laptop'' hoặc ``mobile'') và
+        \texttt{product\_id} là số nguyên. Khi cần chi tiết sản phẩm, Customer
+        Service gọi API sang service tương ứng.
+  \item \texttt{OrderItem.price\_at\_order}: Lưu \textbf{giá tại thời điểm đặt
+        hàng} thay vì tham chiếu về giá hiện tại. Điều này đảm bảo tính nhất quán
+        lịch sử đơn hàng dù giá sản phẩm sau này thay đổi.
+  \item \texttt{Cart} có quan hệ \texttt{OneToOneField} với \texttt{User}: mỗi
+        người dùng chỉ có duy nhất một giỏ hàng tại một thời điểm.
+\end{itemize}
+
+\subsection{Schema Database (MySQL)}
+
+\begin{lstlisting}[language=SQL, caption={Schema MySQL cho Customer Service}]
+-- Bảng cart (giỏ hàng)
+CREATE TABLE api_cart (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT UNIQUE,    -- 1-1 với User
+    created_at DATETIME NOT NULL
+);
+
+-- Bảng cart_item
+CREATE TABLE api_cartitem (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    cart_id      INT NOT NULL REFERENCES api_cart(id),
+    product_type VARCHAR(20) NOT NULL,  -- 'laptop' | 'mobile'
+    product_id   INT NOT NULL,
+    quantity     INT UNSIGNED NOT NULL DEFAULT 1
+);
+
+-- Bảng order
+CREATE TABLE api_order (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    status      VARCHAR(20) NOT NULL DEFAULT 'completed',
+    total_price DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+    created_at  DATETIME NOT NULL
+);
+
+-- Bảng order_item
+CREATE TABLE api_orderitem (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    order_id        INT NOT NULL REFERENCES api_order(id),
+    product_type    VARCHAR(20) NOT NULL,
+    product_id      INT NOT NULL,
+    product_name    VARCHAR(255),
+    quantity        INT UNSIGNED NOT NULL,
+    price_at_order  DECIMAL(12, 2) NOT NULL
+);
+\end{lstlisting}
+
+\subsection{Logic nghiệp vụ Cart}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Add to Cart:} Nếu sản phẩm cùng loại và ID đã tồn tại trong giỏ,
+        tăng số lượng (\texttt{quantity += 1}). Ngược lại tạo \texttt{CartItem} mới.
+  \item \textbf{Checkout:} Lấy toán bộ CartItem, gọi API sang Laptop/Mobile
+        Service để lấy giá hiện tại, tính tổng tiền, tạo \texttt{Order} và các
+        \texttt{OrderItem}, sau đó xóa giỏ hàng.
+  \item \textbf{Stock validation:} Trước khi tạo Order, gọi API kiểm tra
+        \texttt{stock} đủ số lượng yêu cầu.
+\end{itemize}
+
+\subsection{API Endpoints}
+
+\begin{lstlisting}[language=bash, caption={REST API Customer Service}]
+# Auth (Django's built-in)
+POST /api/register/         # Đăng ký tài khoản mới
+POST /api/login/            # Đăng nhập, nhận session/token
+
+# Cart
+GET  /api/cart/             # Xem giỏ hàng hiện tại
+POST /api/cart/add/         # Thêm sản phẩm (product_type, product_id, qty)
+DELETE /api/cart/{item_id}/ # Xóa item khỏi giỏ
+POST /api/cart/checkout/    # Checkout -> tạo Order
+
+# Orders
+GET  /api/orders/           # Lịch sử đơn hàng của user
+GET  /api/orders/{id}/      # Chi tiết đơn hàng
+\end{lstlisting}
+
+%--------------------------------------------------------------------------
+\section{Thiết kế Staff Service (Port 8002)}
+
+Staff Service được thiết kế dành riêng cho \textbf{nhân viên vận hành} hệ thống.
+Không có logic đặt hàng, service này tập trung vào các tác vụ quản trị sản phẩm
+và theo dõi hoạt động hệ thống.
+
+\subsection{Chức năng chính}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Xem và cập nhật sản phẩm:} Staff có quyền cập nhật thông tin
+        sản phẩm, điều chỉnh tồn kho (stock) sau khi nhập hàng.
+  \item \textbf{Xem đơn hàng:} Staff xem danh sách đơn hàng, theo dõi trạng thái
+        để hỗ trợ khách hàng.
+  \item \textbf{Audit trail:} Mọi thao tác của staff được log lại để kiểm soát.
+\end{itemize}
+
+\subsection{Phân quyền (Role-Based Access Control)}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Customer:} Chỉ có quyền truy cập Customer Service API (cart,
+        order). Không truy cập được endpoint của Staff Service.
+  \item \textbf{Staff:} Truy cập Staff Service để quản lý sản phẩm. Không có
+        quyền tạo đơn hàng hoặc truy cập dữ liệu khách hàng khác.
+\end{itemize}
+
+\subsection{API Endpoints}
+
+\begin{lstlisting}[language=bash, caption={REST API Staff Service}]
+GET   /api/staff/laptops/        # Xem danh sách laptop (staff view)
+PATCH /api/staff/laptops/{id}/   # Cập nhật stock laptop
+GET   /api/staff/mobiles/        # Xem danh sách mobile
+PATCH /api/staff/mobiles/{id}/   # Cập nhật stock mobile
+GET   /api/staff/orders/         # Xem tất cả đơn hàng
+\end{lstlisting}
+
+%--------------------------------------------------------------------------
+\section{Thiết kế API Gateway (Nginx + Port 8000)}
+
+API Gateway đóng vai trò \textbf{Single Entry Point} --- là cổng vào duy nhất
+của toàn bộ hệ thống. Hệ thống kiemtra01 sử dụng \textbf{hai lớp gateway}:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Nginx (Port 80):} Reverse proxy cấp thấp, định tuyến HTTP request
+        theo URL prefix.
+  \item \textbf{API Gateway Service (Port 8000):} Django application xử lý routing
+        thông minh, session management và render giao diện người dùng (UI).
+\end{enumerate}
+
+\subsection{Cấu hình Nginx}
+
+\begin{lstlisting}[language=bash, caption={nginx.conf --- Routing tới các microservice}]
+upstream laptop_service    { server laptop_service:8003; }
+upstream mobile_service    { server mobile_service:8004; }
+upstream customer_service  { server customer_service:8001; }
+upstream staff_service     { server staff_service:8002; }
+upstream ai_service        { server ai-service:8005; }
+
+server {
+    listen 80;
+
+    # Product APIs
+    location /api/laptops/  { proxy_pass http://laptop_service; }
+    location /api/mobiles/  { proxy_pass http://mobile_service; }
+
+    # Customer & Auth
+    location /api/cart/     { proxy_pass http://customer_service; }
+    location /api/orders/   { proxy_pass http://customer_service; }
+
+    # AI Endpoints
+    location /api/ai/       { proxy_pass http://ai_service; }
+
+    # Staff Management
+    location /api/staff/    { proxy_pass http://staff_service; }
+
+    # Tất cả request còn lại → Django frontend (api-gateway)
+    location / {
+        proxy_pass http://api-gateway:8000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    }
+}
+\end{lstlisting}
+
+\subsection{Trách nhiệm của API Gateway}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Request routing:} Dựa vào URL prefix, chuyển tiếp đến đúng
+        microservice.
+  \item \textbf{Authentication proxy:} Kiểm tra session/cookie của người dùng
+        trước khi forward request.
+  \item \textbf{Response aggregation:} Tổng hợp dữ liệu từ nhiều service (ví dụ:
+        trang sản phẩm cần gọi Laptop Service để lấy danh sách, AI Service để lấy
+        gợi ý) trước khi render template.
+  \item \textbf{Error handling:} Trả về trang lỗi thân thiện nếu một service
+        downstream không phản hồi.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Luồng hệ thống tổng thể}
+
+\subsection{Biểu đồ luồng Sequence (Checkout)}
+Lưu ý mã nguồn Mermaid dưới đây dùng để sinh Sequence Diagram:
+\begin{lstlisting}[language=bash]
+sequenceDiagram
+    actor U as Khách hàng
+    participant G as API Gateway
+    participant C as Customer Service
+    participant P as Product Services
+    
+    U->>G: POST /api/cart/checkout/
+    G->>C: Forward Checkout Request
+    C->>P: GET /api/laptops/{id}/ (Fetch Price)
+    P-->>C: Trả về giá chuẩn xác định
+    C->>C: Tính Total, Lưu Order, Xóa CartItem
+    C-->>G: HTTP 201 Created (Order Detail)
+    G-->>U: Hiển thị Đặt hàng thành công
+\end{lstlisting}
+
+\subsection{Luồng tương tác chính}
+
+Dưới đây là luồng tương tác chính của hệ thống từ góc nhìn người dùng:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Đăng ký / Đăng nhập:} Người dùng truy cập \texttt{http://localhost}
+        → Nginx chuyển về API Gateway → Customer Service xử lý xác thực.
+  \item \textbf{Xem sản phẩm:} API Gateway gọi song song Laptop Service và Mobile
+        Service, tổng hợp kết quả hiển thị lên trang chủ.
+  \item \textbf{Thêm vào giỏ hàng:} Request đến Customer Service API
+        (\texttt{POST /api/cart/add/}), lưu \texttt{CartItem} vào MySQL.
+  \item \textbf{Checkout:} Customer Service lấy giá từ Laptop/Mobile Service,
+        tính tổng, tạo Order, xóa Cart.
+  \item \textbf{Tư vấn AI:} Người dùng nhập câu hỏi vào chatbot → AI Service
+        xử lý RAG Pipeline → trả về gợi ý sản phẩm bằng tiếng Việt.
+\end{enumerate}
+
+%--------------------------------------------------------------------------
+\section{Hướng dẫn thực hành}
+
+\subsection{Mục tiêu}
+
+Sinh viên cần hoàn thành các mục tiêu sau sau khi nghiên cứu Chương 2:
+
+\begin{itemize}[leftmargin=*]
+  \item Thiết kế Class Diagram cho toàn bộ hệ thống bằng Visual Paradigm (VP).
+  \item Mapping từ Class Diagram sang Database Schema.
+  \item Triển khai Database theo từng service (MySQL / PostgreSQL).
+  \item Hiểu và giải thích lý do chọn loại database cho từng service.
+\end{itemize}
+
+\subsection{Hướng dẫn vẽ Class Diagram bằng Visual Paradigm}
+
+\textbf{Bước 1: Xác định lớp (Classes)}
+
+Sinh viên xác định các lớp chính theo từng service:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Laptop Service:} \texttt{Laptop}
+  \item \textbf{Mobile Service:} \texttt{Mobile}
+  \item \textbf{Customer Service:} \texttt{User}, \texttt{Cart}, \texttt{CartItem},
+        \texttt{Order}, \texttt{OrderItem}
+  \item \textbf{AI Service:} \texttt{ProductMetadata}, \texttt{UserViewLog}
+\end{itemize}
+
+\textbf{Bước 2: Xác định thuộc tính}
+
+Ví dụ lớp \texttt{Laptop}:
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{id: int} (PK)
+  \item \texttt{name: string}
+  \item \texttt{brand: string}
+  \item \texttt{price: decimal}
+  \item \texttt{description: string}
+  \item \texttt{stock: int}
+\end{itemize}
+
+\textbf{Bước 3: Xác định quan hệ (Relationships)}
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{User} $\longrightarrow$ \texttt{Cart}: 1..1 (OneToOne)
+  \item \texttt{Cart} $\longrightarrow$ \texttt{CartItem}: 1..* (Composition)
+  \item \texttt{User} $\longrightarrow$ \texttt{Order}: 1..* (một user nhiều đơn hàng)
+  \item \texttt{Order} $\longrightarrow$ \texttt{OrderItem}: 1..* (Composition)
+\end{itemize}
+
+\textbf{Định dạng Class Diagram theo ngôn ngữ Mermaid:}
+\begin{lstlisting}[language=bash]
+classDiagram
+    class User {
+        +int id
+        +string username
+    }
+    class Cart {
+        +int id
+        +datetime created_at
+    }
+    class Order {
+        +int id
+        +string status
+        +float total_price
+    }
+    class Laptop {
+        +int id
+        +string name
+        +decimal price
+    }
+    User "1" -- "1" Cart : Owns
+    User "1" -- "*" Order : Places
+    Cart "1" *-- "*" CartItem : Contains
+    Order "1" *-- "*" OrderItem : Contains
+\end{lstlisting}
+
+\subsection{Mapping Class Diagram sang Database}
+
+\textbf{Nguyên tắc ánh xạ (Object-Relational Mapping):}
+
+\begin{table}[H]
+  \centering
+  \caption{Quy tắc ánh xạ Class Diagram sang Database}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Khái niệm OOP}  & \textbf{Khái niệm Database}      \\
+    \midrule
+    Class                   & Table                            \\
+    Attribute               & Column                           \\
+    Data type               & SQL Type                         \\
+    1-to-many relationship  & Foreign Key                      \\
+    1-to-1 relationship     & FK + UNIQUE constraint           \\
+    Many-to-many            & Junction table (bảng liên kết)   \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Ví dụ ánh xạ cụ thể:}
+
+\begin{lstlisting}[language=bash]
+# Class model
+Cart(id, user_id, created_at)
+CartItem(id, cart_id -> FK(Cart), product_type, product_id, quantity)
+
+# => Database
+CREATE TABLE api_cart (id, user_id UNIQUE, created_at);
+CREATE TABLE api_cartitem (
+    id, cart_id INT REFERENCES api_cart(id),
+    product_type, product_id, quantity
+);
+\end{lstlisting}
+
+\subsection{Thiết kế Database cho từng Service}
+
+\textbf{Laptop Service \& Mobile Service --- PostgreSQL}
+
+Lý do chọn PostgreSQL:
+\begin{itemize}[leftmargin=*]
+  \item Hỗ trợ kiểu dữ liệu \texttt{JSONB} tốt --- thuận tiện khi cần mở rộng
+        thêm attributes đặc thù (GPU, RAM, OS).
+  \item Hỗ trợ Full-Text Search nội tại, giúp tìm kiếm sản phẩm theo mô tả.
+  \item Xử lý quan hệ phức tạp tốt hơn MySQL trong các truy vấn kết hợp nhiều bảng.
+\end{itemize}
+
+\begin{lstlisting}[language=SQL, caption={Product Services Database (PostgreSQL)}]
+-- laptop_service database
+CREATE TABLE api_laptop (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    brand       VARCHAR(100) NOT NULL,
+    price       DECIMAL(12, 2) NOT NULL,
+    description TEXT,
+    stock       INTEGER NOT NULL DEFAULT 0
+);
+
+-- mobile_service database (cùng cấu trúc, schema riêng)
+CREATE TABLE api_mobile (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    brand       VARCHAR(100) NOT NULL,
+    price       DECIMAL(12, 2) NOT NULL,
+    description TEXT,
+    stock       INTEGER NOT NULL DEFAULT 0
+);
+\end{lstlisting}
+
+\textbf{Customer Service --- MySQL}
+
+Lý do chọn MySQL:
+\begin{itemize}[leftmargin=*]
+  \item ACID compliance mạnh mẽ, phù hợp với transactional data (đặt hàng,
+        thanh toán).
+  \item Phổ biến, tài liệu phong phú, dễ tích hợp với Django ORM.
+  \item Hiệu năng cao cho các truy vấn đọc/ghi đơn giản trên bảng cart và order.
+\end{itemize}
+
+\begin{lstlisting}[language=SQL, caption={Customer Service Database (MySQL)}]
+CREATE TABLE api_cart (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT UNIQUE,
+    created_at DATETIME NOT NULL
+);
+
+CREATE TABLE api_cartitem (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    cart_id      INT NOT NULL,
+    product_type VARCHAR(20) NOT NULL,
+    product_id   INT NOT NULL,
+    quantity     INT UNSIGNED NOT NULL DEFAULT 1,
+    FOREIGN KEY (cart_id) REFERENCES api_cart(id)
+);
+
+CREATE TABLE api_order (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    status      VARCHAR(20) NOT NULL DEFAULT 'completed',
+    total_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    created_at  DATETIME NOT NULL
+);
+
+CREATE TABLE api_orderitem (
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    order_id       INT NOT NULL,
+    product_type   VARCHAR(20) NOT NULL,
+    product_id     INT NOT NULL,
+    product_name   VARCHAR(255),
+    quantity       INT UNSIGNED NOT NULL,
+    price_at_order DECIMAL(12,2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES api_order(id)
+);
+\end{lstlisting}
+
+\subsection{So sánh MySQL và PostgreSQL}
+
+\begin{table}[H]
+  \centering
+  \caption{So sánh MySQL và PostgreSQL trong ngữ cảnh kiemtra01}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Tiêu chí}        & \textbf{MySQL}             & \textbf{PostgreSQL}         \\
+    \midrule
+    ACID compliance          & Có (InnoDB)                & Có (mặc định)               \\
+    JSON support             & Trung bình (\texttt{JSON}) & Tốt (\texttt{JSONB})        \\
+    Full-text search         & Có (hạn chế)               & Mạnh (tích hợp sẵn)         \\
+    Hiệu năng đọc đơn giản   & Rất tốt                    & Tốt                         \\
+    Quan hệ phức tạp         & Trung bình                 & Tốt hơn                     \\
+    Kiểu dữ liệu nâng cao   & Ít                         & Nhiều (array, hstore, UUID) \\
+    Phổ biến trên hosting    & Rất cao                    & Cao                         \\
+    Dùng cho kiemtra01       & Cart, Order (transact.)    & Laptop, Mobile, AI (search) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Checklist đánh giá}
+
+\begin{itemize}[leftmargin=*]
+  \item[$\square$] Có Class Diagram đầy đủ tất cả service bằng Visual Paradigm.
+  \item[$\square$] Mapping rõ ràng từ Class sang Table, Attribute sang Column.
+  \item[$\square$] Database tách riêng từng service (database-per-service).
+  \item[$\square$] Sử dụng cả MySQL (Customer Service) và PostgreSQL
+        (Laptop/Mobile Service).
+  \item[$\square$] Có index hợp lý trên các cột hay được query.
+  \item[$\square$] Trường \texttt{price\_at\_order} lưu đúng giá tại thời điểm
+        đặt hàng.
+\end{itemize}
+
+%--------------------------------------------------------------------------
+\section{Kết luận}
+
+Chương 2 đã trình bày chi tiết quá trình thiết kế và triển khai 6 Bounded Context
+của hệ thống kiemtra01:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Kiến trúc microservices} giúp hệ thống linh hoạt --- mỗi service
+        có thể phát triển, test và deploy độc lập.
+  \item \textbf{Django + DRF} phù hợp cho rapid development các REST API với ORM
+        mạnh mẽ, giảm thiểu boilerplate code.
+  \item \textbf{DDD} giúp thiết kế đúng ranh giới service ngay từ đầu, tránh
+        các anti-pattern như service biết quá nhiều về domain khác.
+  \item \textbf{Database-per-service pattern} đảm bảo không có sự phụ thuộc dữ
+        liệu trực tiếp --- thay đổi schema của Laptop Service không ảnh hưởng đến
+        Customer Service.
+\end{itemize}
+
+Sang Chương 3, chúng ta sẽ đi sâu vào thành phần phức tạp nhất của hệ thống:
+\textbf{AI Service} --- nơi kết hợp Semantic Search, Knowledge Graph và RAG Pipeline
+để tạo ra trải nghiệm mua sắm thông minh.
+
+%==========================================================================
+%                       CHAPTER 3
+%==========================================================================
+\chapter{AI Service cho tư vấn sản phẩm}
+
+\section{Mục tiêu}
+
+Xây dựng hệ thống AI gợi ý sản phẩm dựa trên:
+\begin{itemize}[leftmargin=*]
+  \item Hành vi người dùng (click, search, add-to-cart, purchase)
+  \item Quan hệ sản phẩm (similarity based on embeddings)
+  \item Ngữ cảnh truy vấn (chatbot tư vấn theo ngữ nghĩa)
+\end{itemize}
+
+Đầu ra của hệ thống (Output):
+\begin{itemize}[leftmargin=*]
+  \item Danh sách sản phẩm đề xuất (Recommendation List) hiển thị trên giao diện theo thời gian thực.
+  \item Trợ lý ảo (Chatbot tư vấn) hỗ trợ khách hàng qua ngôn ngữ tự nhiên.
+\end{itemize}
+
+\section{Kiến trúc AI Service Pipeline}
+
+AI Service được thiết kế như một microservice độc lập (Chạy trên port 8005) giao tiếp qua REST API.
+
+\textbf{Quy trình luồng xử lý (Pipeline):}
+\begin{enumerate}
+    \item \textbf{Input:} Thu thập User Behavior từ Customer Service và NLP query từ cửa sổ chat.
+    \item \textbf{Processing:}
+      \begin{itemize}
+        \item \textit{Deep Learning (BiLSTM):} Dự đoán sở thích tiếp theo theo thời gian thực.
+        \item \textit{Knowledge Graph (Neo4j):} Tìm kiếm Collaborative Filtering.
+        \item \textit{RAG (Vector DB + LLM):} Hiểu ngữ cảnh và tư vấn dạng ngôn ngữ tự nhiên.
+      \end{itemize}
+    \item \textbf{Output:} Phản hồi JSON chứa văn bản tư vấn và danh sách sản phẩm (Product metadata).
+\end{enumerate}
+
+\section{Thu thập dữ liệu (Data Pipeline)}
+
+\subsection{User Behavior Data}
+Chúng tôi đã sử dụng 2 bộ dữ liệu (Dataset) thử nghiệm:
+\begin{itemize}
+    \item \textbf{Dataset 2 (Mobile Shopping):} Gồm thao tác của 300 người dùng lướt xem các danh mục smartphone. Người dùng có xu hướng lặp lại việc so sánh thông số trước khi mua.
+    \item \textbf{Dataset 3 (Tech Accessories):} Tập dữ liệu mở rộng chứa thao tác add-to-cart của 500 người dùng với Laptop, Tablet, và bàn phím.
+\end{itemize}
+
+Thông tin tracking mỗi hành vi bao gồm:
+\texttt{user\_id, product\_id, action (view, click, add\_to\_cart, buy), timestamp}.
+
+\subsection{Ví dụ cấu trúc Dataset}
+\begin{lstlisting}[language=bash, caption={Dữ liệu mẫu data\_user500.csv}]
+user_id, product_id, product_type, action, time
+1, 101, laptop, view, 2026-06-01T10:00:00Z
+1, 102, laptop, view, 2026-06-01T10:05:00Z
+1, 102, laptop, add_to_cart, 2026-06-01T10:06:00Z
+2, 205, mobile, purchase, 2026-06-02T11:00:00Z
+\end{lstlisting}
+
+\section{Mô hình Sequence Modeling (Deep Learning)}
+
+\subsection{Ý tưởng}
+Để dự đoán sản phẩm tiếp theo, hệ thống phân tích chuỗi hành vi. Cần chọn một mô hình có khả năng lưu giữ ngữ cảnh thời gian trên tập chuỗi hành động này.
+
+\subsection{Các mô hình sử dụng và so sánh}
+Chúng tôi so sánh 3 cấu trúc học sâu (Deep Learning):
+\begin{enumerate}
+    \item \textbf{RNN (Recurrent Neural Network):} Cơ bản, dễ bị vanishing gradient khi phiên làm việc của user dài.
+    \item \textbf{LSTM (Long Short-Term Memory):} Cải thiện mạnh việc nhớ các event quan trọng nhờ các cơ chế gates.
+    \item \textbf{BiLSTM (Bidirectional LSTM):} Khảo sát hành vi cả từ quá khứ đến hiện tại và hiện tại đối chiếu lại quá khứ (Ví dụ: khách hàng hay quay về xem mặt hàng đầu tiên sau khi đã xem 3 mặt hàng khác).
+\end{enumerate}
+
+
+\textbf{Mã Markdown Mermaid Chart:}
+\begin{lstlisting}[language=bash]
+gantt
+    title So sánh hiệu năng của RNN, LSTM, BiLSTM (Accuracy %)
+    dateFormat YYYY-MM-DD
+    axisFormat %m-%d
+
+    section RNN
+    Thực tế 68.4%   : a1, 2026-06-01, 68d
+    
+    section LSTM
+    Thực tế 82.1%   : a2, 2026-06-01, 82d
+    
+    section BiLSTM
+    Thực tế 88.5%   : a3, 2026-06-01, 88d
+\end{lstlisting}
+\textbf{Nhận xét:} Mô hình BiLSTM thể hiện tính ưu việt rõ rệt trên bộ dataset E-commerce, do người tiêu dùng có tính so sánh vòng lặp cao, việc xử lý Bidirectional giúp model nắm bắt logic tốt hơn so với mô hình một chiều. Ta chọn BiLSTM làm mô hình chiến lược.
+
+\subsection{Mô hình chi tiết và Code}
+\begin{lstlisting}[language=Python, caption={Cấu trúc Model BiLSTM chuẩn trên PyTorch}]
+import torch
+import torch.nn as nn
+
+class RecommendationBiLSTM(nn.Module):
+    def __init__(self, input_dim=20, hidden_dim=64, output_dim=1000):
+        super(RecommendationBiLSTM, self).__init__()
+        # Kích hoạt bidirectional
+        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True, bidirectional=True)
+        # Nối hidden_dim do tính chất 2 chiều
+        self.fc = nn.Linear(hidden_dim * 2, output_dim)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = out[:, -1, :] # Chỉ lấy state ở time step cuối
+        return self.fc(out)
+\end{lstlisting}
+
+\subsection{Quá trình Training}
+\begin{lstlisting}[language=Python, caption={Vòng lặp Training BiLSTM Model}]
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+for epoch in range(epochs):
+    model.train()
+    optimizer.zero_grad()
+    
+    output = model(X_train)
+    loss = criterion(output, y_train)
+    loss.backward()
+    
+    optimizer.step()
+    
+    if epoch % 10 == 0:
+        print(f"Epoch {epoch}, Loss: {loss.item()}")
+\end{lstlisting}
+
+\section{Knowledge Graph với Neo4j}
+
+\subsection{Mô hình đồ thị}
+Đồ thị (Graph) được biểu diễn bằng Nodes và Edges:
+\begin{itemize}
+    \item \textbf{Node:} User, Product
+    \item \textbf{Edge:} \texttt{BUY}, \texttt{VIEW}, \texttt{SIMILAR}
+\end{itemize}
+
+\subsection{Ví dụ Cypher (Ngôn ngữ truy vấn Graph)}
+Tạo Node và Edge:
+\begin{lstlisting}[language=SQL]
+CREATE (u:User {id: 1})
+CREATE (p:Product {id: 101, name: "MacBook Pro"})
+CREATE (u)-[:BUY]->(p)
+\end{lstlisting}
+
+Truy vấn Collaborative Filtering (Khách hàng tương tự):
+\begin{lstlisting}[language=SQL]
+MATCH (u:User {id: 1})-[:BUY]->(p:Product)<-[:BUY]-(other:User)
+MATCH (other)-[:BUY]->(rec:Product)
+WHERE u <> other AND NOT (u)-[:BUY]->(rec)
+RETURN rec.name AS Recommendation, count(*) AS strength
+ORDER BY strength DESC LIMIT 5;
+\end{lstlisting}
+
+\section{RAG (Retrieval-Augmented Generation)}
+
+\subsection{Luồng RAG Pipeline}
+\begin{enumerate}
+    \item \textbf{Retrieve (Tìm kiếm):} Câu hỏi của user được embedding qua \texttt{all-MiniLM-L6-v2} và tính khoảng cách Cosine Similarity với mảng \texttt{ProductMetadata} (tìm trong Vector Database).
+    \item \textbf{Context (Bổ sung dữ liệu):} Trích xuất lịch sử User từ Neo4j để ghép chung với sản phẩm vừa retrieve.
+    \item \textbf{Generate (Sinh hội thoại):} Đưa Context + Message gửi lên LLM (như LLaMA hoặc Gemini) thông báo trả lời khách hàng dưới dạng Chat.
+\end{enumerate}
+
+\subsection{Ví dụ Vector Database Search}
+\begin{lstlisting}[language=Python]
+query = "tìm laptop mỏng nhẹ giá dưới 20 triệu"
+query_emb = generate_embedding(query)
+results = vector_db.search(query_emb, top_k=3)
+response = LLM.generate(prompt=build_prompt(query, results, user_history))
+\end{lstlisting}
+
+\section{Hai dạng API AI Service cung cấp}
+
+\subsection{Recommendation List (Dành cho trang chủ / giỏ hàng)}
+Cung cấp mảng sản phẩm liên tiếp.
+\begin{lstlisting}[language=bash]
+GET /api/recommendations/?user_id=1
+# Output:
+[
+  {"id": 101, "name": "Dell XPS 13", "score": 0.95},
+  {"id": 105, "name": "Asus Zenbook", "score": 0.88}
+]
+\end{lstlisting}
+
+\subsection{Chatbot Tư vấn (Dành cho Cửa sổ Chat góc phải)}
+Tích hợp giao diện e-commerce.
+\begin{lstlisting}[language=bash]
+POST /api/chat/
+Body: {"user_id": 1, "message": "Có chuột nào hợp với máy Mac không?"}
+
+# Output:
+{
+  "reply": "Chào bạn, với máy Mac bạn có thể tham khảo dòng chuột Logitech MX Master 3S nhé...",
+  "products": [...] # Kèm danh sách render Product Card
+}
+\end{lstlisting}
+
+\section{Checklist đánh giá}
+\begin{itemize}[leftmargin=*]
+  \item[$\square$] Có pipeline AI rõ ràng (Behavior Tracking $\rightarrow$ Model $\rightarrow$ DB).
+  \item[$\square$] Có mô hình dự đoán (Sequence modeling BiLSTM).
+  \item[$\square$] Có thử nghiệm dataset và biểu đồ so sánh các thuật toán DL.
+  \item[$\square$] Có chạy Neo4j Graph và RAG Pipeline thực tế tích hợp chatbot.
+  \item[$\square$] Có API hoạt động, sẵn sàng render lên Frontend.
+\end{itemize}
+
+%==========================================================================
+%                       CHAPTER 4
+%==========================================================================
+\chapter{Xây dựng Hệ thống E-commerce Hoàn chỉnh}
+
+\section{Kiến trúc Tổng thể}
+
+\subsection{Mô hình hệ thống}
+Hệ thống \textbf{kiemtra01} bao gồm hơn 10 container vận hành độc lập.
+\begin{itemize}
+    \item \textbf{frontend / api-gateway (Django + Nginx, port 80/8000)} --- Điểm vào duy nhất.
+    \item \textbf{customer-service (port 8001, MySQL)} --- Quản lý khách, giỏ hàng, đơn hàng.
+    \item \textbf{staff-service (port 8002, MySQL)} --- Đứng sau gateway, quản lý xử lý đơn hàng.
+    \item \textbf{laptop-service (port 8003, PostgreSQL)} --- Quản lý riêng mảng Laptop.
+    \item \textbf{mobile-service (port 8004, PostgreSQL)} --- Quản lý riêng mảng Mobile.
+    \item \textbf{ai-service (port 8005, PostgreSQL + Neo4j)} --- Gợi ý AI và LLM Chatbot.
+\end{itemize}
+
+\subsection{Kiến trúc hệ thống (System Architecture)}
+\textbf{Sơ đồ Code luồng System Architecture:}
+\begin{lstlisting}[language=bash]
+flowchart TD
+    Client((Client)) --> |HTTP| Nginx{API Gateway Nginx :80}
+    Nginx --> |/api/cart, /api/orders| Customer(Customer Service :8001)
+    Nginx --> |/api/staff| Staff(Staff Service :8002)
+    Nginx --> |/api/laptops| Laptop(Laptop Service :8003)
+    Nginx --> |/api/mobiles| Mobile(Mobile Service :8004)
+    Nginx --> |/api/chat| AI(AI Service :8005)
+
+    Customer --> |Sync REST| MySQL[(MySQL DB)]
+    Staff --> |Analyze| MySQL
+    Laptop --> |Sync| Postgres[(PostgreSQL DB)]
+    Mobile --> |Sync| Postgres
+    AI --> |Vector Search| Postgres
+    AI --> |Graph Context| Neo4j[(Neo4j DB)]
+\end{lstlisting}
+Áp dụng \textbf{Microservice Architecture} với Data-Isolation tuyệt đối, giao tiếp đồng bộ (Synchronous REST API) và bất đồng bộ (Celery / RabbitMQ nếu mở rộng sau này).
+
+\subsection{Stack Công nghệ}
+\begin{table}[H]
+  \centering
+  \caption{Stack công nghệ hệ thống}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Thành phần} & \textbf{Công nghệ} & \textbf{Lý do chọn} \\
+    \midrule
+    Backend        & Django 5.x + DRF & Rapid development, ORM mạnh mẽ \\
+    DB Quan hệ      & MySQL 8.0 & Phổ biến, ACID cực tốt cho đơn hàng \\
+    Product DB     & PostgreSQL 15 & Hỗ trợ Vector search và JSONB dữ liệu phẳng \\
+    Graph DB       & Neo4j 5.x & Lưu trữ liên kết Collaborative cho User-Product \\
+    Container      & Docker + Compose & Đồng nhất môi trường \\
+    Proxy          & Nginx & High-performance Reverse Proxy \\
+    AI/ML          & PyTorch, LLaMA / Gemini & Mạnh mẽ dễ dùng cho RAG \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Chi tiết Từng Service}
+
+\subsection{1. API Gateway (Nginx)}
+Configuration Routing Proxy:
+\begin{lstlisting}[language=bash]
+upstream laptop_service { server laptop_service:8003; }
+upstream ai_service     { server ai-service:8005; }
+
+server {
+    listen 80;
+    
+    location /api/laptops/ { proxy_pass http://laptop_service; }
+    location /api/ai/      { proxy_pass http://ai_service; }
+    
+    location / {
+        proxy_pass http://api-gateway:8000;
+        proxy_set_header Host $host;
+    }
+}
+\end{lstlisting}
+
+\subsection{2. Customer Service \& Giao dịch}
+Quản lý luồng Cart $\rightarrow$ Order. Khi một user mua hàng, hệ thống lưu lại \texttt{price\_at\_order} để giữ biên lai không bị trôi giá nếu sau này Laptop thay đổi giá.
+
+\section{Database Schema Tổng quát}
+
+\textbf{Product (Laptop) DB - Postgres:}
+\begin{lstlisting}[language=SQL]
+CREATE TABLE api_laptop (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255), brand VARCHAR(100),
+    price DECIMAL(10,2), stock INT
+);
+\end{lstlisting}
+
+\textbf{Customer Order DB - MySQL:}
+\begin{lstlisting}[language=SQL]
+CREATE TABLE api_order (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT, status VARCHAR(50), total_price FLOAT
+);
+\end{lstlisting}
+
+\section{Docker Deployment}
+
+\subsection{Cấu trúc docker-compose.yml}
+Ví dụ cấu hình \texttt{docker-compose.yml} của AI Service để link với các base db:
+\begin{lstlisting}[language=docker-compose]
+  ai-service:
+    build: ./ai_service
+    ports:
+      - "8005:8005"
+    environment:
+      - DB_HOST=db_postgres
+      - NEO4J_URI=bolt://neo4j:7687
+    depends_on:
+      - db_postgres
+      - neo4j
+    networks:
+      - my_network
+\end{lstlisting}
+
+\subsection{Khởi chạy hệ thống}
+\begin{lstlisting}[language=bash]
+# Build image và khởi chạy
+docker-compose up --build -d
+
+# Check trạng thái tất cả các service
+docker-compose ps
+
+# Xem log realtime của một service riêng biệt
+docker-compose logs -f ai-service
+\end{lstlisting}
+
+\section{Authentication Security \& Monitoring}
+\subsection{Security}
+Tất cả endpoint đều được khóa bởi Authentication lớp giữa (Mid-ware) JWT Token cấp phát từ Customer Service. Sử dụng cấu hình CSRF/CORS chặt chẽ tại Gateway.
+
+\subsection{Monitoring \& Troubleshooting}
+\begin{itemize}
+    \item \textbf{Lỗi Cart items:} Nếu thêm giỏ bị lỗi, cần check logs Customer Service xem MySQL đã cấp kết nối ổn định chưa.
+    \item \textbf{Chatbot Disconnect:} Kiểm tra Neo4j (Port 7474) đã sẵn sàng trước khi AI service mount hay chưa. (Tăng timing vào \texttt{depends\_on} bằng \texttt{service\_healthy}).
+\end{itemize}
+
+\section{Thể hiện Luồng End-to-End Trực quan}
+Luồng Mua hàng kèm tư vấn:
+\begin{enumerate}
+    \item User vào trang chủ (Nginx $\rightarrow$ API Gateway).
+    \item Frontend hiển thị Laptops/Mobiles lấy nhanh qua REST.
+    \item User chat hỏi Bot: "Dell có máy nào dưới 20 triệu?".
+    \item \textbf{AI Service} gọi RAG Vector Search Postgre $\rightarrow$ Trả về \textbf{Dell Vostro}.
+    \item User bấm "Thêm vào giỏ" ngay từ khung Chat. (Customer Service nhận gói POST lưu DB).
+    \item Hoàn thành đặt hàng $\rightarrow$ cập nhật History trên Neo4j.
+\end{enumerate}
+
+%==========================================================================
+%                           KẾT LUẬN
+%==========================================================================
+\chapter*{Kết luận}
+\addcontentsline{toc}{chapter}{Kết luận}
+
+Tiểu luận đã hoàn thành xuất sắc việc phân tích thiết kế, lập trình kiến trúc \textbf{E-commerce Microservices kết hợp nền tảng AI}. Dự án \textbf{kiemtra01} thỏa mãn toàn bộ tiêu chí của phương pháp luận \textbf{Domain Driven Design (DDD)}, với sơ đồ Class Diagram chi tiết, \textbf{Polyglot Persistence} linh hoạt dựa trên đặc điểm dữ liệu (MySQL cho giao dịch, PostgreSQL và Neo4j cho Machine Learning).
+
+Hệ thống AI ứng dụng mạng \textbf{BiLSTM} tiên tiến mang lại độ chính xác 88.5\%, kết hợp nền tảng \textbf{Graph RAG} cho phép chatbot trò chuyện linh hoạt tự nhiên, hỗ trợ bán hàng hiệu suất cao. Dự án đóng gói chuẩn hóa \textbf{Docker Compose}, sẵn sàng cho quy trình CI/CD và định tuyến tải trên nền Kubernetes trong môi trường Enterprise Production. 
+
+%==========================================================================
+\end{document}

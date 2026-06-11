@@ -13,12 +13,149 @@
         th { background-color: #e6f2ff; }
         .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
         .btn-catalog { background-color: #28a745; color: white; }
+        .btn-buy { background-color: #28a745; color: white; border-radius: 4px; padding: 8px 12px; cursor: pointer; border: none; margin-top: 10px;}
         .btn-logout { background-color: #6c757d; color: white; }
         .btn-checkout { background-color: #007bff; color: white; margin-top: 20px; width: 100%; font-size: 18px; }
         .btn:hover { opacity: 0.8; }
+
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 50%; border-radius: 8px; position: relative; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+
+        /* Chat Widget Styles */
+        #chat-widget { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+        #chat-button { background-color: #007bff; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 24px; }
+        #chat-window { display: none; position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); flex-direction: column; overflow: hidden; }
+        #chat-header { background: #007bff; color: white; padding: 10px; font-weight: bold; display: flex; justify-content: space-between; }
+        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .message { padding: 8px 12px; border-radius: 15px; max-width: 80%; font-size: 14px; }
+        .user-message { background: #007bff; color: white; align-self: flex-end; }
+        .ai-message { background: #f0f0f0; color: #333; align-self: flex-start; }
+        #chat-input-container { padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 5px; }
+        #chat-input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
     </style>
 </head>
 <body>
+    <div id="chat-widget">
+        <div id="chat-button" onclick="toggleChat()">💬</div>
+        <div id="chat-window">
+            <div id="chat-header">
+                AI Assistant
+                <span style="cursor:pointer" onclick="toggleChat()">&times;</span>
+            </div>
+            <div id="chat-messages">
+                <div class="message ai-message">Hi! How can I help you today?</div>
+            </div>
+            <div id="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Type a message...">
+                <button onclick="sendMessage()" class="btn btn-buy" style="margin:0; padding: 5px 10px;">Send</button>
+            </div>
+        </div>
+    </div>
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalName">Product Name</h2>
+            <p><strong>Brand:</strong> <span id="modalBrand"></span></p>
+            <p><strong>Price:</strong> $<span id="modalPrice"></span></p>
+            <p><strong>Type:</strong> <span id="modalType"></span></p>
+            <p><strong>Description:</strong></p>
+            <p id="modalDescription" style="background: #f9f9f9; padding: 10px; border-radius: 4px; border-left: 4px solid #007bff;"></p>
+            <form action="/customer/add-to-cart/" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="product_type" id="modalFormType">
+                <input type="hidden" name="product_id" id="modalFormId">
+                <div style="margin-top: 20px;">
+                    <input type="number" name="quantity" value="1" min="1" style="padding: 8px; width: 60px;">
+                    <button type="submit" class="btn btn-buy" style="padding: 10px 20px;">Add to Cart</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleChat() {
+            const win = document.getElementById('chat-window');
+            win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            appendMessage(msg, 'user-message');
+            input.value = '';
+
+            fetch('/ai/api/chat/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    user_id: '{{ user.id }}',
+                    message: msg
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                appendMessage(data.reply, 'ai-message');
+            })
+            .catch(err => {
+                console.error('Chat error:', err);
+                appendMessage("Sorry, I'm having trouble connecting.", 'ai-message');
+            });
+        }
+
+        function appendMessage(text, className) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `message ${className}`;
+            div.innerText = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function openProductModal(name, brand, price, type, description, id) {
+            document.getElementById('modalName').innerText = name;
+            document.getElementById('modalBrand').innerText = brand;
+            document.getElementById('modalPrice').innerText = price;
+            document.getElementById('modalType').innerText = type.charAt(0).toUpperCase() + type.slice(1);
+            document.getElementById('modalDescription').innerText = description || "No description available.";
+            document.getElementById('modalFormType').value = type;
+            document.getElementById('modalFormId').value = id;
+            document.getElementById('productModal').style.display = "block";
+
+            // Track the view in background
+            fetch('/customer/track-view/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    product_id: id,
+                    product_type: type
+                })
+            }).then(response => response.json())
+              .then(data => console.log('View tracked:', data))
+              .catch(err => console.error('Error tracking view:', err));
+        }
+
+        function closeModal() {
+            document.getElementById('productModal').style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('productModal')) {
+                closeModal();
+            }
+        }
+    </script>
+
     <div class="container">
         <div class="header">
             <h1>Your Shopping Cart</h1>
@@ -26,7 +163,7 @@
                 <span>Logged in as: {{ user.username }}</span>
                 <a href="/customer/search/" class="btn btn-catalog">Shop More</a>
                 <a href="/customer/orders/" class="btn btn-cart" style="background-color: #17a2b8;">My Orders</a>
-                <a href="http://127.0.0.1:8002/login/" class="btn btn-logout" style="background-color: #dc3545; color: white;">Log in as Staff</a>
+                <a href="/staff/login/" class="btn btn-logout" style="background-color: #dc3545; color: white;">Log in as Staff</a>
                 <a href="/customer/logout/" class="btn btn-logout">Logout</a>
             </div>
         </div>
@@ -51,11 +188,79 @@
             </tbody>
         </table>
         
-        <a href="/customer/checkout/" class="btn btn-checkout" style="text-align: center;">Proceed to Checkout</a>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <a href="/customer/checkout/" class="btn btn-checkout" style="text-align: center; margin-top: 0; flex: 3;">Proceed to Checkout</a>
+            <a href="/customer/discard-cart/" class="btn btn-logout" style="background-color: #dc3545; color: white; display: flex; align-items: center; justify-content: center; flex: 1; font-size: 16px;">Discard Cart</a>
+        </div>
         {% else %}
         <p style="text-align: center; margin-top: 40px; color: #666;">Your cart is empty.</p>
         <p style="text-align: center;"><a href="/customer/search/" class="btn btn-catalog">Go to Catalog</a></p>
         {% endif %}
+
+        <hr style="margin-top: 50px; border: 0; border-top: 1px solid #eee;">
+        
+        <div class="recommendation-section" style="margin-top: 30px;">
+            <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px;">AI Recommended for You</h2>
+            {% if recommendations %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                {% for item in recommendations %}
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fafafa;">
+                    <h3 style="margin-top: 0; font-size: 18px;">{{ item.name }}</h3>
+                    <p style="color: #666; font-size: 14px;">{{ item.brand }}</p>
+                    <p style="font-weight: bold; color: #28a745;">${{ item.price }}</p>
+                    <p style="font-size: 12px; color: #999;">Type: {{ item.type|title }}</p>
+                    {% if item.score %}
+                    <p style="font-size: 11px; color: #007bff; background: #e6f2ff; padding: 2px 5px; border-radius: 4px; display: inline-block;">AI Match: {{ item.score|floatformat:2 }}</p>
+                    {% endif %}
+                    
+                    <button type="button" class="btn btn-cart" style="width: 100%; font-size: 14px; margin-bottom: 5px; background-color: #17a2b8;" 
+                            onclick="openProductModal('{{ item.name|escapejs }}', '{{ item.brand|escapejs }}', '{{ item.price }}', '{{ item.type }}', '{{ item.description|escapejs }}', '{{ item.id }}')">
+                        View Product
+                    </button>
+                    
+                    <form action="/customer/add-to-cart/" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="product_type" value="{{ item.type }}">
+                        <input type="hidden" name="product_id" value="{{ item.id }}">
+                        <button type="submit" class="btn btn-buy" style="width: 100%; font-size: 14px;">Add to Cart</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: #999; font-style: italic;">No recommendations available yet. Start browsing to see personalized suggestions!</p>
+            {% endif %}
+        </div>
+
+        <div class="recommendation-section" style="margin-top: 30px;">
+            <h2 style="color: #28a745; border-bottom: 2px solid #28a745; padding-bottom: 10px;">People Also Viewed (Graph-based)</h2>
+            {% if graph_recommendations %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                {% for item in graph_recommendations %}
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #f0fff4;">
+                    <h3 style="margin-top: 0; font-size: 18px;">{{ item.name }}</h3>
+                    <p style="color: #666; font-size: 14px;">{{ item.brand }}</p>
+                    <p style="font-weight: bold; color: #28a745;">${{ item.price }}</p>
+                    <p style="font-size: 12px; color: #999;">Type: {{ item.type|title }}</p>
+                    
+                    <button type="button" class="btn btn-cart" style="width: 100%; font-size: 14px; margin-bottom: 5px; background-color: #17a2b8;" 
+                            onclick="openProductModal('{{ item.name|escapejs }}', '{{ item.brand|escapejs }}', '{{ item.price }}', '{{ item.type }}', '{{ item.description|escapejs }}', '{{ item.id }}')">
+                        View Product
+                    </button>
+                    
+                    <form action="/customer/add-to-cart/" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="product_type" value="{{ item.type }}">
+                        <input type="hidden" name="product_id" value="{{ item.id }}">
+                        <button type="submit" class="btn btn-buy" style="width: 100%; font-size: 14px; background-color: #007bff;">Add to Cart</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: #999; font-style: italic;">Discover what others are interested in as you browse!</p>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html>

@@ -1,13 +1,16 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from .models import Cart, CartItem, Order, OrderItem
 import requests
 from decimal import Decimal
+import json
+from django.views.decorators.csrf import csrf_exempt
 
 # Base URLs for other services inside docker network
 LAPTOP_API_URL = "http://laptop_service:8003/api/laptops/"
 MOBILE_API_URL = "http://mobile_service:8004/api/mobiles/"
+AI_API_URL = "http://ai-service:8005/api/"
 
 def customer_login(request):
     if request.method == 'POST':
@@ -33,9 +36,28 @@ def customer_home(request):
     cart, created = Cart.objects.get_or_create(user=request.user)
     items = cart.items.all()
     
+    # AI Recommendations
+    recommendations = []
+    graph_recommendations = []
+    try:
+        resp = requests.get(f"{AI_API_URL}recommend/", params={'user_id': request.user.id}, timeout=2)
+        if resp.status_code == 200:
+            recommendations = resp.json()
+            
+        g_resp = requests.get(f"{AI_API_URL}graph-recommend/", params={'user_id': request.user.id}, timeout=2)
+        if g_resp.status_code == 200:
+            graph_recommendations = g_resp.json()
+    except Exception as e:
+        print(f"Error fetching recommendations: {e}")
+    
     # We might want to enrich item data with names from APIs
     # For now, just display IDs
-    return render(request, 'home.html', {'items': items, 'user': request.user})
+    return render(request, 'home.html', {
+        'items': items, 
+        'user': request.user, 
+        'recommendations': recommendations,
+        'graph_recommendations': graph_recommendations
+    })
 
 def product_search(request):
     if not request.user.is_authenticated:
@@ -63,7 +85,28 @@ def product_search(request):
     except Exception as e:
         print(f"Error searching products: {e}")
         
-    return render(request, 'search.html', {'laptops': laptops, 'mobiles': mobiles, 'query': query})
+    # AI Recommendations
+    recommendations = []
+    graph_recommendations = []
+    try:
+        resp = requests.get(f"{AI_API_URL}recommend/", params={'user_id': request.user.id}, timeout=2)
+        if resp.status_code == 200:
+            recommendations = resp.json()
+            
+        g_resp = requests.get(f"{AI_API_URL}graph-recommend/", params={'user_id': request.user.id}, timeout=2)
+        if g_resp.status_code == 200:
+            graph_recommendations = g_resp.json()
+    except Exception as e:
+        print(f"Error fetching recommendations: {e}")
+        
+    return render(request, 'search.html', {
+        'laptops': laptops, 
+        'mobiles': mobiles, 
+        'query': query,
+        'recommendations': recommendations,
+        'graph_recommendations': graph_recommendations,
+        'user': request.user
+    })
 
 def add_to_cart(request):
     if not request.user.is_authenticated:
@@ -86,9 +129,74 @@ def add_to_cart(request):
             item.quantity = quantity
         item.save()
         
+        # Track view/interest in AI service
+        try:
+            url = f"{LAPTOP_API_URL if product_type == 'laptop' else MOBILE_API_URL}{product_id}/"
+            host = 'laptop-service' if product_type == 'laptop' else 'mobile-service'
+            resp = requests.get(url, headers={'Host': host}, timeout=1)
+            if resp.status_code == 200:
+                p_data = resp.json()
+                track_data = {
+                    "user_id": request.user.id,
+                    "product_id": product_id,
+                    "product_type": product_type,
+                    "brand": p_data.get('brand'),
+                    "name": p_data.get('name'),
+                    "price": p_data.get('price'),
+                    "description": p_data.get('description')
+                }
+                requests.post(f"{AI_API_URL}track-view/", json=track_data, timeout=1)
+        except Exception as e:
+            print(f"Error tracking view: {e}")
+
         return redirect('customer_home')
         
     return redirect('product_search')
+
+@csrf_exempt
+def track_view(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Not authenticated'}, status=401)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            product_type = data.get('product_type')
+            product_id = data.get('product_id')
+            
+            # Fetch product details and track view
+            url = f"{LAPTOP_API_URL if product_type == 'laptop' else MOBILE_API_URL}{product_id}/"
+            host = 'laptop-service' if product_type == 'laptop' else 'mobile-service'
+            resp = requests.get(url, headers={'Host': host}, timeout=1)
+            
+            if resp.status_code == 200:
+                p_data = resp.json()
+                track_data = {
+                    "user_id": request.user.id,
+                    "product_id": product_id,
+                    "product_type": product_type,
+                    "brand": p_data.get('brand'),
+                    "name": p_data.get('name'),
+                    "price": p_data.get('price'),
+                    "description": p_data.get('description')
+                }
+                requests.post(f"{AI_API_URL}track-view/", json=track_data, timeout=1)
+                return JsonResponse({'status': 'success'})
+            return JsonResponse({'status': 'error', 'message': 'Product not found'}, status=404)
+        except Exception as e:
+            print(f"Error in track_view: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+
+def discard_cart(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    cart = get_object_or_404(Cart, user=request.user)
+    cart.items.all().delete()
+    
+    return redirect('customer_home')
 
 def checkout(request):
     if not request.user.is_authenticated:

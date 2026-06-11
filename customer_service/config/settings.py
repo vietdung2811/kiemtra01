@@ -26,6 +26,7 @@ SECRET_KEY = 'django-insecure-)k4jhf=kcgct+es_ke74$h#(eojuyg57%y*hy0v=1c72n31mw#
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+USE_X_FORWARDED_HOST = True
 
 
 import os

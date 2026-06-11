@@ -18,9 +18,74 @@
         .btn-logout { background-color: #6c757d; color: white; }
         .btn:hover { opacity: 0.8; }
         .product-section { margin-top: 30px; }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 50%; border-radius: 8px; position: relative; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
     </style>
 </head>
 <body>
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalName">Product Name</h2>
+            <p><strong>Brand:</strong> <span id="modalBrand"></span></p>
+            <p><strong>Price:</strong> $<span id="modalPrice"></span></p>
+            <p><strong>Type:</strong> <span id="modalType"></span></p>
+            <p><strong>Description:</strong></p>
+            <p id="modalDescription" style="background: #f9f9f9; padding: 10px; border-radius: 4px; border-left: 4px solid #007bff;"></p>
+            <form action="/customer/add-to-cart/" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="product_type" id="modalFormType">
+                <input type="hidden" name="product_id" id="modalFormId">
+                <div style="margin-top: 20px;">
+                    <input type="number" name="quantity" value="1" min="1" style="padding: 8px; width: 60px;">
+                    <button type="submit" class="btn btn-buy" style="padding: 10px 20px;">Add to Cart</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openProductModal(name, brand, price, type, description, id) {
+            document.getElementById('modalName').innerText = name;
+            document.getElementById('modalBrand').innerText = brand;
+            document.getElementById('modalPrice').innerText = price;
+            document.getElementById('modalType').innerText = type.charAt(0).toUpperCase() + type.slice(1);
+            document.getElementById('modalDescription').innerText = description || "No description available.";
+            document.getElementById('modalFormType').value = type;
+            document.getElementById('modalFormId').value = id;
+            document.getElementById('productModal').style.display = "block";
+
+            // Track the view in background
+            fetch('/customer/track-view/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    product_id: id,
+                    product_type: type
+                })
+            }).then(response => response.json())
+              .then(data => console.log('View tracked:', data))
+              .catch(err => console.error('Error tracking view:', err));
+        }
+
+        function closeModal() {
+            document.getElementById('productModal').style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('productModal')) {
+                closeModal();
+            }
+        }
+    </script>
+
     <div class="container">
         <div class="header">
             <h1>Product Catalog</h1>
@@ -28,7 +93,7 @@
                 <span>Logged in as: {{ user.username }}</span>
                 <a href="/customer/cart/" class="btn btn-cart">My Cart</a>
                 <a href="/customer/orders/" class="btn btn-cart" style="background-color: #17a2b8;">My Orders</a>
-                <a href="http://127.0.0.1:8002/login/" class="btn btn-logout" style="background-color: #dc3545; color: white;">Log in as Staff</a>
+                <a href="/staff/login/" class="btn btn-logout" style="background-color: #dc3545; color: white;">Log in as Staff</a>
                 <a href="/customer/logout/" class="btn btn-logout">Logout</a>
             </div>
         </div>
@@ -37,6 +102,39 @@
             <input type="text" name="q" placeholder="Search for products..." value="{{ query }}" style="padding: 10px; width: 300px;">
             <button type="submit" class="btn btn-cart">Search</button>
         </form>
+
+        <div class="recommendation-section" style="margin-top: 30px;">
+            <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px;">AI Recommended for You</h2>
+            {% if recommendations %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                {% for item in recommendations %}
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fafafa;">
+                    <h3 style="margin-top: 0; font-size: 18px;">{{ item.name }}</h3>
+                    <p style="color: #666; font-size: 14px;">{{ item.brand }}</p>
+                    <p style="font-weight: bold; color: #28a745;">${{ item.price }}</p>
+                    <p style="font-size: 12px; color: #999;">Type: {{ item.type|title }}</p>
+                    {% if item.score %}
+                    <p style="font-size: 11px; color: #007bff; background: #e6f2ff; padding: 2px 5px; border-radius: 4px; display: inline-block;">AI Match: {{ item.score|floatformat:2 }}</p>
+                    {% endif %}
+                    
+                    <button type="button" class="btn btn-cart" style="width: 100%; font-size: 14px; margin-bottom: 5px; background-color: #17a2b8;" 
+                            onclick="openProductModal('{{ item.name|escapejs }}', '{{ item.brand|escapejs }}', '{{ item.price }}', '{{ item.type }}', '{{ item.description|escapejs }}', '{{ item.id }}')">
+                        View Product
+                    </button>
+                    
+                    <form action="/customer/add-to-cart/" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="product_type" value="{{ item.type }}">
+                        <input type="hidden" name="product_id" value="{{ item.id }}">
+                        <button type="submit" class="btn btn-buy" style="width: 100%; font-size: 14px;">Add to Cart</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color: #999; font-style: italic;">No recommendations available yet. Start browsing to see personalized suggestions!</p>
+            {% endif %}
+        </div>
 
         <div class="product-section">
             <h2>Laptops</h2>
@@ -57,7 +155,11 @@
                         <td>{{ item.brand }}</td>
                         <td>${{ item.price }}</td>
                         <td>{{ item.stock }}</td>
-                        <td>
+                        <td style="display: flex; gap: 5px;">
+                            <button type="button" class="btn btn-cart" style="background-color: #17a2b8;" 
+                                    onclick="openProductModal('{{ item.name|escapejs }}', '{{ item.brand|escapejs }}', '{{ item.price }}', 'laptop', '{{ item.description|escapejs }}', '{{ item.id }}')">
+                                View
+                            </button>
                             <form action="/customer/add-to-cart/" method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="product_type" value="laptop">
@@ -93,7 +195,11 @@
                         <td>{{ item.brand }}</td>
                         <td>${{ item.price }}</td>
                         <td>{{ item.stock }}</td>
-                        <td>
+                        <td style="display: flex; gap: 5px;">
+                            <button type="button" class="btn btn-cart" style="background-color: #17a2b8;" 
+                                    onclick="openProductModal('{{ item.name|escapejs }}', '{{ item.brand|escapejs }}', '{{ item.price }}', 'mobile', '{{ item.description|escapejs }}', '{{ item.id }}')">
+                                View
+                            </button>
                             <form action="/customer/add-to-cart/" method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="product_type" value="mobile">

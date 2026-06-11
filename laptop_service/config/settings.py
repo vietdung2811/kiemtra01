@@ -4,7 +4,8 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-laptop'
 DEBUG = True
-ALLOWED_HOSTS = ['*'] # This should work, but I will try to be more explicit if it fails
+ALLOWED_HOSTS = ['*', 'laptop_service']
+USE_X_FORWARDED_HOST = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
