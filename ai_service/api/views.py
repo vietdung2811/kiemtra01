@@ -173,7 +173,7 @@ class RecommendView(APIView):
 
     Query params:
       - query (str): Free-text description of desired product
-      - user_id (int, optional): If provided, exclude products the user has already seen
+      - user_id (int, optional): If provided, use user's history for personalization
       - top_k (int, optional): Number of results (default 5)
     """
     def get(self, request):
@@ -181,22 +181,45 @@ class RecommendView(APIView):
         user_id = request.query_params.get('user_id')
         top_k = int(request.query_params.get('top_k', 5))
 
-        if not query:
-            return Response({'error': 'Missing required param: query'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        # 1. If we have a query, use semantic search on that query
+        if query:
+            query_embedding = generate_embedding(query)
+            results = retrieve_similar_products(query_embedding, top_k=top_k)
+            return Response({'query': query, 'recommendations': results}, status=status.HTTP_200_OK)
 
-        # Get products already seen by this user (to optionally exclude)
-        exclude_ids = []
+        # 2. If no query but we have a user_id, use their history
         if user_id:
-            viewed = UserViewLog.objects.filter(user_id=user_id).values_list('product_id', flat=True)
-            exclude_ids = list(viewed)
+            last_views = UserViewLog.objects.filter(user_id=user_id).order_by('-viewed_at')[:3]
+            if last_views.exists():
+                # Combine metadata of last viewed items to build a profile embedding
+                profile_texts = []
+                for view in last_views:
+                    p = ProductMetadata.objects.filter(product_id=view.product_id, product_type=view.product_type).first()
+                    if p:
+                        profile_texts.append(f"{p.brand} {p.name} {p.description}")
+                
+                if profile_texts:
+                    profile_query = " ".join(profile_texts)
+                    profile_embedding = generate_embedding(profile_query)
+                    # Exclude what they already saw
+                    viewed_ids = UserViewLog.objects.filter(user_id=user_id).values_list('product_id', flat=True)
+                    results = retrieve_similar_products(profile_embedding, top_k=top_k, exclude_ids=list(viewed_ids))
+                    return Response({'type': 'personalized', 'recommendations': results}, status=status.HTTP_200_OK)
 
-        # RAG Retrieval: encode query → semantic search
-        query_embedding = generate_embedding(query)
-        results = retrieve_similar_products(query_embedding, top_k=top_k, exclude_ids=[])
-
-        logger.info(f"RecommendView: query='{query}', returned {len(results)} results")
-        return Response({'query': query, 'recommendations': results}, status=status.HTTP_200_OK)
+        # 3. Fallback: Just return the latest products or some default
+        latest_products = ProductMetadata.objects.order_by('-id')[:top_k]
+        results = []
+        for p in latest_products:
+            results.append({
+                'id': p.product_id,
+                'type': p.product_type,
+                'brand': p.brand,
+                'name': p.name,
+                'price': float(p.price),
+                'description': p.description,
+            })
+        
+        return Response({'type': 'default', 'recommendations': results}, status=status.HTTP_200_OK)
 
 
 # ─────────────────────────────────────────────

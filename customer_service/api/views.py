@@ -42,11 +42,11 @@ def customer_home(request):
     try:
         resp = requests.get(f"{AI_API_URL}recommend/", params={'user_id': request.user.id}, timeout=2)
         if resp.status_code == 200:
-            recommendations = resp.json()
+            recommendations = resp.json().get('recommendations', [])
             
         g_resp = requests.get(f"{AI_API_URL}graph-recommend/", params={'user_id': request.user.id}, timeout=2)
         if g_resp.status_code == 200:
-            graph_recommendations = g_resp.json()
+            graph_recommendations = g_resp.json().get('recommendations', [])
     except Exception as e:
         print(f"Error fetching recommendations: {e}")
     
@@ -89,13 +89,13 @@ def product_search(request):
     recommendations = []
     graph_recommendations = []
     try:
-        resp = requests.get(f"{AI_API_URL}recommend/", params={'user_id': request.user.id}, timeout=2)
+        resp = requests.get(f"{AI_API_URL}recommend/", params={'user_id': request.user.id, 'query': query}, timeout=2)
         if resp.status_code == 200:
-            recommendations = resp.json()
+            recommendations = resp.json().get('recommendations', [])
             
         g_resp = requests.get(f"{AI_API_URL}graph-recommend/", params={'user_id': request.user.id}, timeout=2)
         if g_resp.status_code == 200:
-            graph_recommendations = g_resp.json()
+            graph_recommendations = g_resp.json().get('recommendations', [])
     except Exception as e:
         print(f"Error fetching recommendations: {e}")
         
