@@ -1,1584 +1,1307 @@
-\UseRawInputEncoding
-%==========================================================================
-% BÁO CÁO TIỂU LUẬN - KIẾN TRÚC VÀ THIẾT KẾ PHẦN MỀM
-% Học viện Công nghệ Bưu chính Viễn thông
-%==========================================================================
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  HeadingLevel, AlignmentType, LevelFormat, BorderStyle, WidthType,
+  ShadingType, VerticalAlign, PageNumber, PageBreak, TabStopType,
+  TabStopPosition, Header, Footer
+} = require('docx');
+const fs = require('fs');
 
-\documentclass[12pt,a4paper]{report}
+// ─── Helpers ───────────────────────────────────────────────────────────────
+const PTC = { ptitblue: "00467F", lightblue: "D6E4F0", tableheader: "003366", white: "FFFFFF", gray: "F5F5F5", darkgray: "555555" };
 
-%---------- Encoding & Language ----------
-\usepackage[utf8]{inputenc}
-\usepackage[T5]{fontenc}
-\usepackage[vietnamese,english]{babel}
+const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+const borders = { top: border, bottom: border, left: border, right: border };
+const thickBorder = { style: BorderStyle.SINGLE, size: 4, color: PTC.ptitblue };
 
-%---------- Page Layout ----------
-\usepackage[top=3cm, bottom=3cm, left=3.5cm, right=2.5cm]{geometry}
-\usepackage{setspace}
-\onehalfspacing
-
-%---------- Fonts ----------
-\usepackage{lmodern}
-
-%---------- Colors ----------
-\usepackage[dvipsnames]{xcolor}
-\definecolor{ptitblue}{RGB}{0,70,127}
-\definecolor{codeblue}{RGB}{0,0,180}
-\definecolor{codegray}{RGB}{128,128,128}
-\definecolor{codebg}{RGB}{248,248,248}
-
-%---------- Graphics ----------
-\usepackage{graphicx}
-\usepackage{float}
-
-%---------- Tables ----------
-\usepackage{booktabs}
-\usepackage{tabularx}
-\usepackage{multirow}
-\usepackage{array}
-\usepackage{longtable}
-
-%---------- Code Listings ----------
-\usepackage{listings}
-\lstset{
-  backgroundcolor=\color{codebg},
-  basicstyle=\footnotesize\ttfamily,
-  keywordstyle=\color{codeblue}\bfseries,
-  commentstyle=\color{codegray}\itshape,
-  stringstyle=\color{red!60!black},
-  numbers=left,
-  numberstyle=\tiny\color{codegray},
-  numbersep=8pt,
-  stepnumber=1,
-  frame=single,
-  rulecolor=\color{gray!40},
-  breaklines=true,
-  breakatwhitespace=true,
-  captionpos=b,
-  tabsize=4,
-  showstringspaces=false,
-  escapeinside={(*@}{@*)},
-}
-\lstdefinelanguage{docker-compose}{
-  keywords={services, volumes, networks, image, build, ports, environment,
-            depends\_on, networks, driver, hostname, command, volumes, restart,
-            container\_name, env\_file},
-  sensitive=false,
-  comment=[l]{\#},
+function heading1(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_1,
+    children: [new TextRun({ text, font: "Arial", size: 32, bold: true, color: PTC.ptitblue })],
+    spacing: { before: 480, after: 240 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: PTC.ptitblue, space: 1 } },
+    pageBreakBefore: true,
+  });
 }
 
-%---------- Minted (alternative) ----------
-% If minted is not available, fallback to listings above
-
-%---------- Hyperlinks ----------
-\usepackage[hidelinks]{hyperref}
-\hypersetup{
-  colorlinks=true,
-  linkcolor=ptitblue,
-  citecolor=ptitblue,
-  urlcolor=blue!70!black,
+function heading2(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
+    children: [new TextRun({ text, font: "Arial", size: 28, bold: true, color: PTC.ptitblue })],
+    spacing: { before: 300, after: 150 },
+  });
 }
 
-%---------- Headers/Footers ----------
-\usepackage{fancyhdr}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\textcolor{gray}{Báo cáo Tiểu luận E-commerce Microservices + AI}}
-\fancyhead[R]{\small\textcolor{gray}{\leftmark}}
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-
-%---------- Section Formatting ----------
-\usepackage{titlesec}
-\titleformat{\chapter}[display]
-  {\normalfont\huge\bfseries\color{ptitblue}}
-  {Chương \thechapter}{10pt}{\Huge}
-\titlespacing*{\chapter}{0pt}{30pt}{20pt}
-
-\titleformat{\section}
-  {\normalfont\large\bfseries\color{ptitblue}}
-  {\thesection}{1em}{}
-\titleformat{\subsection}
-  {\normalfont\normalsize\bfseries\color{ptitblue!80!black}}
-  {\thesubsection}{1em}{}
-
-%---------- TOC Depth ----------
-\setcounter{tocdepth}{3}
-\setcounter{secnumdepth}{3}
-
-%---------- Misc ----------
-\usepackage{enumitem}
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{tikz}
-\usepackage{mdframed}
-
-% Placeholder box style
-\newmdenv[
-  linecolor=gray!60,
-  backgroundcolor=gray!10,
-  roundcorner=4pt,
-  frametitle={\small\textbf{[PLACEHOLDER]}},
-  frametitlebackgroundcolor=gray!25,
-]{placeholder}
-
-%==========================================================================
-\begin{document}
-
-%---------- TITLE PAGE ----------
-\begin{titlepage}
-  \centering
-  \vspace*{1cm}
-
-  {\large\bfseries BỘ THÔNG TIN VÀ TRUYỀN THÔNG}\\[0.3cm]
-  {\large\bfseries HỌC VIỆN CÔNG NGHỆ BƯU CHÍNH VIỄN THÔNG}\\[2cm]
-
-  {\Large\bfseries KIẾN TRÚC VÀ THIẾT KẾ PHẦN MỀM}\\[1cm]
-  {\huge\bfseries\color{ptitblue} TIỂU LUẬN}\\[2cm]
-
-  \begin{tabular}{ll}
-    \textbf{Giảng viên:} & PGS. TS. Trần Đình Quế \\[0.4cm]
-    \textbf{Lớp:}        & E22CNPM01               \\[0.4cm]
-    \textbf{Nhóm:}       & 01                      \\[0.4cm]
-    \textbf{Sinh viên:}  & Đỗ Thùy Anh --- B22DCCN015\\
-  \end{tabular}
-
-  \vfill
-  {\large Hà Nội, 2026}
-\end{titlepage}
-
-%---------- TABLE OF CONTENTS ----------
-\tableofcontents
-\newpage
-
-%==========================================================================
-%                       CHAPTER 1
-%==========================================================================
-\chapter{Từ Monolithic đến Microservices và DDD}
-
-%--------------------------------------------------------------------------
-\section{Giới thiệu Monolithic Architecture}
-
-\subsection{Khái niệm}
-
-Monolithic Architecture là mô hình trong đó toàn bộ hệ thống (UI, business logic,
-database access) được xây dựng và triển khai như \textbf{một khối duy nhất}.
-
-\subsection{Cấu trúc điển hình}
-
-Một ứng dụng Monolithic truyền thống gồm ba tầng chính:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Presentation Layer} (UI) --- Xử lý giao tiếp với người dùng.
-  \item \textbf{Business Logic Layer} --- Toàn bộ quy tắc nghiệp vụ tập trung tại đây.
-  \item \textbf{Data Access Layer} --- Tương tác trực tiếp với cơ sở dữ liệu duy nhất.
-\end{itemize}
-
-\subsection{Ví dụ thực tế}
-
-Một hệ e-commerce monolithic sẽ bao gồm: quản lý sản phẩm, giỏ hàng, thanh toán,
-và quản lý người dùng --- tất cả nằm trong \emph{cùng một codebase} và được triển khai
-như một ứng dụng duy nhất.
-
-\subsection{Nhược điểm chi tiết}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Khó mở rộng:} Phải scale toàn hệ thống thay vì từng module có nhu cầu
-        cao.
-  \item \textbf{Coupling cao:} Một thay đổi nhỏ trong một module có thể ảnh hưởng lan
-        toàn bộ hệ thống.
-  \item \textbf{Deploy rủi ro:} Lỗi ở một chức năng nhỏ có thể làm sập toàn hệ thống
-        trong quá trình deployment.
-  \item \textbf{Khó phát triển nhóm:} Nhiều team cùng sửa một codebase dẫn đến xung
-        đột (merge conflicts) thường xuyên.
-\end{itemize}
-
-\subsection{Khi nào nên dùng Monolithic}
-
-Dù có nhiều nhược điểm, Monolithic vẫn phù hợp trong các trường hợp sau:
-
-\begin{itemize}[leftmargin=*]
-  \item Hệ thống nhỏ với ít tính năng.
-  \item MVP (Minimum Viable Product) --- cần ra thị trường nhanh.
-  \item Team ít người, chưa đủ năng lực quản lý distributed system.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Microservices Architecture}
-
-\subsection{Khái niệm}
-
-Microservices là kiến trúc \textbf{chia hệ thống thành các dịch vụ nhỏ, độc lập},
-mỗi service thực hiện một chức năng riêng biệt và có thể được phát triển, triển khai,
-mở rộng hoàn toàn độc lập với nhau.
-
-\subsection{Đặc điểm}
-
-\begin{itemize}[leftmargin=*]
-  \item Mỗi service có \textbf{database riêng} (database-per-service pattern).
-  \item Giao tiếp với nhau qua \textbf{API} (REST/gRPC).
-  \item \textbf{Deploy độc lập} --- một service cập nhật không ảnh hưởng service khác.
-\end{itemize}
-
-\subsection{So sánh Monolithic và Microservices}
-
-\begin{table}[H]
-  \centering
-  \caption{So sánh kiến trúc Monolithic và Microservices}
-  \begin{tabular}{lll}
-    \toprule
-    \textbf{Tiêu chí}       & \textbf{Monolithic}  & \textbf{Microservices} \\
-    \midrule
-    Deploy                  & Một lần              & Nhiều lần (độc lập)    \\
-    Scale                   & Toàn hệ thống        & Từng service           \\
-    Coupling                & Cao                  & Thấp                   \\
-    Phức tạp                & Thấp ban đầu         & Cao hơn                \\
-    Phát triển nhóm         & Khó khi lớn           & Phù hợp đội lớn        \\
-    Fault isolation         & Không                & Có                     \\
-    \bottomrule
-  \end{tabular}
-  \label{tab:monolithic-vs-micro}
-\end{table}
-
-\subsection{Ưu điểm}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Scale độc lập từng service} theo nhu cầu thực tế (ví dụ: scale
-        product-service khi lượng truy vấn tăng mà không cần scale toàn hệ thống).
-  \item \textbf{Tăng tốc phát triển:} Nhiều team làm việc song song trên các service
-        khác nhau mà không conflict.
-  \item \textbf{Fault isolation:} Lỗi ở một service không kéo sập các service còn lại.
-  \item \textbf{Phù hợp hệ thống lớn:} Dễ bảo trì, dễ thay thế công nghệ từng phần.
-\end{itemize}
-
-\subsection{Nhược điểm}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Phức tạp hệ thống:} Cần quản lý nhiều service, container, database.
-  \item \textbf{Quản lý distributed system:} Xử lý distributed transactions, eventual
-        consistency, network latency.
-  \item \textbf{Debug khó hơn:} Tracing lỗi xuyên nhiều service đòi hỏi công cụ
-        monitoring chuyên biệt (Jaeger, Zipkin, ELK Stack).
-\end{itemize}
-
-\subsection{Nguyên tắc thiết kế}
-
-Ba nguyên tắc cốt lõi khi thiết kế Microservices:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Single Responsibility:} Mỗi service chỉ đảm nhận một business domain.
-  \item \textbf{Loose Coupling:} Các service chỉ giao tiếp qua API, không dùng chung
-        database hay thư viện nội bộ.
-  \item \textbf{High Cohesion:} Trong mỗi service, các thành phần liên quan chặt chẽ
-        với nhau về nghiệp vụ.
-\end{itemize}
-
-\subsection{Các Big Tech ứng dụng Microservices}
-
-Quá trình chuyển đổi từ Monolithic sang Microservices đã được minh chứng bởi nhiều tập đoàn công nghệ lớn:
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Netflix:} Khởi xướng chuyển đổi từ 2009 sau sự cố database. Chia hệ thống thành các dịch vụ độc lập, dẫn đến sự ra đời bộ công cụ Spring Cloud Netflix.
-  \item \textbf{Amazon:} Bắt đầu cấu trúc lại hạ tầng monolithic khổng lồ từ năm 2001 sang dạng Service-Oriented Architecture (kiểu tiền thân Microservices) giúp tăng tốc độ phát hành tính năng.
-  \item \textbf{Uber:} Thiết kế monolithic ban đầu tại San Francisco không tải nổi khi mở rộng toàn cầu. Việc chia cắt thành các dịch vụ độc lập như payment, notification, location tracking giúp scale dễ dàng hơn.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Domain Driven Design (DDD)}
-
-\subsection{Mục tiêu}
-
-DDD (Domain-Driven Design) giúp \textbf{mô hình hóa hệ thống theo nghiệp vụ (business
-domain)}, không phụ thuộc vào công nghệ. DDD cung cấp ngôn ngữ chung
-(Ubiquitous Language) giữa domain experts và developers, giúp phân tách hệ thống
-theo đúng ranh giới nghiệp vụ thực tế.
-
-\subsection{Các khái niệm cốt lõi}
-
-\begin{description}[leftmargin=2em,labelwidth=2.5cm]
-  \item[\textbf{Entity}]
-        Đối tượng có \textbf{định danh duy nhất (ID)}, tồn tại xuyên suốt vòng đời hệ
-        thống. Ví dụ: \texttt{User}, \texttt{Product}.
-
-  \item[\textbf{Value Object}]
-        Không có ID riêng, được so sánh bằng \textbf{giá trị}. Ví dụ: \texttt{Address},
-        \texttt{Money}.
-
-  \item[\textbf{Aggregate}]
-        Nhóm các entity liên quan được xử lý như một đơn vị nhất quán. Ví dụ:
-        \texttt{Order} (root) + \texttt{OrderItem} (children).
-
-  \item[\textbf{Bounded Context}]
-        Ranh giới domain rõ ràng, trong đó các khái niệm có nghĩa nhất định. Ví dụ:
-        \texttt{User Context} (quản lý tài khoản), \texttt{Order Context} (đặt hàng).
-
-  \item[\textbf{Domain Service}]
-        Logic nghiệp vụ không thuộc về entity cụ thể nào. Ví dụ: service tính phí
-        vận chuyển dựa trên địa chỉ và trọng lượng.
-
-  \item[\textbf{Repository}]
-        Interface trừu tượng hóa việc truy xuất dữ liệu, tách biệt business logic khỏi
-        persistence layer.
-\end{description}
-
-\subsection{Context Map}
-
-Context Map thể hiện mối quan hệ giữa các Bounded Context trong hệ thống. Sinh viên
-cần vẽ sơ đồ thể hiện các mối quan hệ sau:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Shared Kernel:} Hai context dùng chung một phần domain model (thường
-        là User ID, Product ID được tham chiếu qua lại).
-  \item \textbf{Customer-Supplier:} Một context (Supplier) cung cấp dữ liệu cho context
-        khác (Customer). Ví dụ: Product Service cung cấp dữ liệu sản phẩm cho AI
-        Service.
-  \item \textbf{Conformist:} Context downstream phải tuân theo model của upstream mà
-        không có quyền thay đổi.
-  \item \textbf{Anti-Corruption Layer:} Lớp dịch ngữ nghĩa giữa các context không
-        tương thích.
-\end{itemize}
-
-\textbf{Sơ đồ Context Map thực tế của hệ thống kiemtra01:} \\
-- \textbf{Shared Kernel:} Bảng `Laptop` / `Mobile` và bảng Order chia sẻ ID sản phẩm (\texttt{product\_id}). \\
-- \textbf{Customer-Supplier:} Customer Service cung cấp ID/Token cho AI Service. \\
-- \textbf{Anti-Corruption Layer (ACL):} Lớp DTO ngăn cách Entity \texttt{Order} không bị rò rỉ dữ liệu thừa ra Frontend GUI.
-
-\subsection{DDD trong Microservices}
-
-Sự kết hợp giữa DDD và Microservices là tự nhiên và bổ trợ lẫn nhau:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Mỗi Bounded Context = 1 Microservice:} Ranh giới context trở thành ranh
-        giới service, đảm bảo service chỉ biết về domain của mình.
-  \item \textbf{Tránh chia service theo technical layer:} Không nên tạo service riêng
-        cho ``tầng database'' hay ``tầng UI'' --- mỗi service phải chứa đầy đủ
-        từ API đến database cho một domain cụ thể.
-  \item \textbf{Database per Service:} Mỗi service sở hữu dữ liệu riêng, không context
-        nào được đọc trực tiếp database của context khác.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Case Study: Healthcare (Luyện Decomposition)}
-
-Để luyện tập kỹ năng phân rã hệ thống, chúng ta xem xét một bài toán thực tế trong
-lĩnh vực y tế (Healthcare).
-
-\subsection{Mô tả bài toán}
-
-Hệ thống quản lý bệnh viện cần đáp ứng các nghiệp vụ sau:
-
-\begin{itemize}[leftmargin=*]
-  \item Quản lý thông tin bệnh nhân (hồ sơ, lịch sử khám bệnh).
-  \item Quản lý thông tin bác sĩ (chuyên khoa, lịch làm việc).
-  \item Đặt lịch khám bệnh (appointment scheduling).
-\end{itemize}
-
-\subsection{Bước 1: Xác định Domain}
-
-Xác định các domain chính trong hệ thống:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Patient Management Domain} --- Xử lý mọi logic liên quan đến bệnh nhân.
-  \item \textbf{Doctor Management Domain} --- Xử lý thông tin và lịch làm việc của bác sĩ.
-  \item \textbf{Appointment Scheduling Domain} --- Xử lý đặt lịch, xác nhận, hủy hẹn.
-\end{itemize}
-
-\subsection{Bước 2: Xác định Bounded Context}
-
-Mỗi domain trở thành một Bounded Context độc lập:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Patient Context:} Quản lý hồ sơ bệnh nhân, lịch sử bệnh án.
-  \item \textbf{Doctor Context:} Quản lý hồ sơ bác sĩ, chuyên môn, lịch khám.
-  \item \textbf{Appointment Context:} Điều phối lịch hẹn giữa bệnh nhân và bác sĩ.
-\end{itemize}
-
-\subsection{Bước 3: Phân rã thành Microservices}
-
-Ánh xạ trực tiếp từ Bounded Context sang Microservices:
-
-\begin{itemize}[leftmargin=*]
-  \item \texttt{patient-service} --- REST API quản lý bệnh nhân.
-  \item \texttt{doctor-service} --- REST API quản lý bác sĩ.
-  \item \texttt{appointment-service} --- REST API quản lý lịch hẹn, phụ thuộc vào hai
-        service trên.
-\end{itemize}
-
-\subsection{Bước 4: Xác định quan hệ}
-
-\begin{itemize}[leftmargin=*]
-  \item \texttt{appointment-service} phụ thuộc vào cả \texttt{patient-service} và
-        \texttt{doctor-service}: khi tạo lịch hẹn, cần xác thực ID bệnh nhân và ID
-        bác sĩ thông qua API call.
-  \item Giao tiếp giữa các service hoàn toàn qua REST API, không dùng chung database.
-\end{itemize}
-
-\subsection{Thể hiện Service qua Django}
-
-Thay vì tạo một app khổng lồ duy nhất, mỗi Bounded Context được khởi tạo thành một project Django (hoặc app) độc lập:
-\begin{lstlisting}[language=bash]
-# Khởi tạo Patient Service độc lập
-django-admin startproject patient_service
-cd patient_service
-python manage.py startapp api
-\end{lstlisting}
-
-\begin{lstlisting}[language=Python, caption={patient\_service/api/models.py}]
-from django.db import models
-
-class Patient(models.Model):
-    name = models.CharField(max_length=255)
-    medical_history = models.TextField()
-\end{lstlisting}
-
-\subsection{Ví dụ API}
-
-\begin{lstlisting}[language=bash, caption={API endpoints của hệ thống Healthcare}]
-GET  /patients/                  # Lấy danh sách bệnh nhân
-GET  /patients/{id}/             # Chi tiết bệnh nhân
-GET  /doctors/                   # Lấy danh sách bác sĩ
-GET  /doctors/{id}/availability/ # Lịch làm việc bác sĩ
-POST /appointments/              # Tạo lịch hẹn mới
-GET  /appointments/{id}/         # Chi tiết lịch hẹn
-\end{lstlisting}
-
-%--------------------------------------------------------------------------
-\section{Kết luận}
-
-Chương 1 đã trình bày nền tảng lý thuyết quan trọng làm cơ sở cho toàn bộ dự án:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Monolithic} phù hợp hệ nhỏ, MVP, team ít người; nhưng gặp vấn đề
-        nghiêm trọng về khả năng mở rộng và bảo trì khi hệ thống tăng trưởng.
-  \item \textbf{Microservices} phù hợp hệ lớn, đa team; đánh đổi sự đơn giản ban đầu
-        lấy khả năng mở rộng và fault isolation dài hạn.
-  \item \textbf{DDD} là nền tảng phương pháp luận quan trọng để phân rã hệ thống đúng
-        theo ranh giới nghiệp vụ, tránh các anti-pattern phổ biến như ``God Service''
-        hay ``Chatty Microservices''.
-\end{itemize}
-
-Sang Chương 2, những nguyên tắc này sẽ được áp dụng trực tiếp vào việc thiết kế và
-triển khai hệ thống E-Commerce \textbf{kiemtra01}.
-
-%==========================================================================
-%                       CHAPTER 2
-%==========================================================================
-\chapter{Phát triển Hệ E-Commerce Microservices (kiemtra01)}
-
-%--------------------------------------------------------------------------
-\section{Xác định yêu cầu}
-
-\subsection{Yêu cầu chức năng (Functional Requirements)}
-
-Hệ thống \textbf{kiemtra01} là nền tảng bán lẻ thiết bị điện tử trực tuyến, tập
-trung vào hai dòng sản phẩm chính: laptop và điện thoại di động. Các yêu cầu
-chức năng được xác định như sau:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Quản lý sản phẩm:} Hệ thống hỗ trợ hai domain sản phẩm độc lập ---
-        Laptop Service và Mobile Service. Mỗi service quản lý danh mục, thông tin
-        chi tiết sản phẩm (tên, thương hiệu, giá, tồn kho, mô tả) và cung cấp
-        REST API cho các service khác truy vấn.
-  \item \textbf{Quản lý khách hàng:} Customer Service xử lý đăng ký, đăng nhập,
-        quản lý profile người dùng thông qua Django's built-in User model.
-  \item \textbf{Giỏ hàng (Cart):} Mỗi khách hàng có một giỏ hàng riêng. Hỗ trợ
-        thêm, xóa, cập nhật số lượng sản phẩm từ cả hai domain laptop và mobile.
-  \item \textbf{Đặt hàng (Order):} Khách hàng checkout từ giỏ hàng, hệ thống tạo
-        đơn hàng với trạng thái và tổng tiền. Kết hợp sản phẩm từ nhiều service.
-  \item \textbf{Tìm kiếm và gợi ý AI:} AI Service cung cấp khả năng gợi ý sản
-        phẩm dựa trên hành vi người dùng và chatbot tư vấn thông minh bằng tiếng Việt.
-  \item \textbf{Quản lý vận hành:} Staff Service dành cho nhân viên quản lý kho,
-        xem danh sách đơn hàng và cập nhật thông tin sản phẩm.
-\end{itemize}
-
-\subsection{Biểu đồ Use Case tóm tắt}
-\begin{lstlisting}[language=bash]
-flowchart LR
-    C[Customer] --> U1(Đăng nhập / Đăng ký)
-    C --> U2(Tham khảo Laptops, Mobiles)
-    C --> U3(Thêm vào giỏ & Đặt hàng)
-    C --> U4(Chatbot AI)
-    S[Staff] --> U5(Quản lý Sản phẩm)
-    S --> U6(Duyệt Đơn hàng)
-\end{lstlisting}
-
-\subsection{Yêu cầu phi chức năng (Non-functional Requirements)}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Scalability:} Các service được containerize độc lập, có thể scale
-        riêng lẻ theo tải thực tế (ví dụ: scale AI Service khi lượng truy vấn chatbot
-        tăng cao mà không cần scale toàn hệ thống).
-  \item \textbf{Fault Isolation:} Nếu AI Service bị lỗi, các service còn lại
-        (laptop, mobile, customer) vẫn hoạt động bình thường.
-  \item \textbf{Maintainability:} Mỗi service có codebase riêng, môi trường
-        riêng --- developer có thể phát triển và deploy độc lập.
-  \item \textbf{Performance:} PostgreSQL cho Laptop/Mobile Service nhờ khả năng
-        xử lý JSON tốt; MySQL cho Customer Service phù hợp với transactional data.
-  \item \textbf{Ease of deployment:} Toàn bộ hệ thống khởi chạy bằng một lệnh
-        \texttt{docker-compose up} duy nhất.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Phân rã hệ thống theo DDD}
-
-\subsection{Bounded Context}
-
-Áp dụng nguyên tắc DDD, hệ thống kiemtra01 được phân rã thành \textbf{6 Bounded
-Context} độc lập, mỗi context tương ứng với một microservice:
-
-\begin{table}[H]
-  \centering
-  \caption{Ánh xạ Bounded Context sang Microservices}
-  \begin{tabular}{llll}
-    \toprule
-    \textbf{Bounded Context} & \textbf{Service}       & \textbf{Port} & \textbf{Database}  \\
-    \midrule
-    Laptop Context           & laptop\_service        & 8003          & PostgreSQL         \\
-    Mobile Context           & mobile\_service        & 8004          & PostgreSQL         \\
-    Customer Context         & customer\_service      & 8001          & MySQL              \\
-    Staff Context            & staff\_service         & 8002          & MySQL              \\
-    AI Context               & ai\_service            & 8005          & PostgreSQL + Neo4j \\
-    Gateway Context          & api-gateway + nginx    & 8000 / 80     & ---                \\
-    \bottomrule
-  \end{tabular}
-  \label{tab:bounded-contexts}
-\end{table}
-
-\subsection{Nguyên tắc phân rã}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Mỗi context có database riêng:} Laptop/Mobile Service dùng chung
-        một instance PostgreSQL nhưng schema riêng; Customer/Staff Service dùng
-        chung MySQL; AI Service có thêm Neo4j cho Knowledge Graph.
-  \item \textbf{Giao tiếp qua REST API:} Khi cần dữ liệu từ service khác
-        (ví dụ: Customer Service cần lấy giá sản phẩm khi tạo đơn hàng), service
-        sẽ gọi API của service đó --- không truy vấn trực tiếp database.
-  \item \textbf{Single Responsibility:} Laptop Service chỉ biết về laptop; Mobile
-        Service chỉ biết về mobile --- tránh ``God Service'' biết tất cả các loại
-        sản phẩm.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Thiết kế Laptop Service (Port 8003)}
-
-Laptop Service là microservice quản lý danh mục máy tính xách tay, được xây dựng
-bằng \textbf{Django 5.x + Django REST Framework}, kết nối \textbf{PostgreSQL} để
-tận dụng khả năng hỗ trợ JSON tốt và các kiểu dữ liệu quan hệ phức tạp.
-
-\subsection{Mô hình dữ liệu (Data Model)}
-
-\begin{lstlisting}[language=Python, caption={laptop\_service/api/models.py}]
-from django.db import models
-
-class Laptop(models.Model):
-    name        = models.CharField(max_length=255)
-    brand       = models.CharField(max_length=100)
-    price       = models.DecimalField(max_digits=12, decimal_places=2)
-    description = models.TextField(blank=True, null=True)
-    stock       = models.IntegerField(default=0)
-
-    def __str__(self):
-        return f"{self.brand} {self.name}"
-\end{lstlisting}
-
-\textbf{Phân tích thiết kế:}
-\begin{itemize}[leftmargin=*]
-  \item Trường \texttt{brand} được tách thành field riêng (không ghép vào \texttt{name})
-        để thuận tiện cho việc lọc theo thương hiệu (filter by brand) và cho AI Service
-        tạo embedding.
-  \item \texttt{price} sử dụng \texttt{DecimalField} thay vì \texttt{FloatField} để
-        tránh sai số dấu phẩy động trong các phép tính tổng tiền.
-  \item \texttt{description} cho phép null để tương thích với dữ liệu seed từ các
-        nguồn khác nhau.
-\end{itemize}
-
-\subsection{Schema Database (PostgreSQL)}
-
-\begin{lstlisting}[language=SQL, caption={Schema bảng laptop trong PostgreSQL}]
-CREATE TABLE api_laptop (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    brand       VARCHAR(100) NOT NULL,
-    price       DECIMAL(12, 2) NOT NULL,
-    description TEXT,
-    stock       INTEGER NOT NULL DEFAULT 0
-);
-
--- Index để tăng tốc truy vấn lọc theo brand
-CREATE INDEX idx_laptop_brand ON api_laptop(brand);
--- Index để lọc sản phẩm còn hàng
-CREATE INDEX idx_laptop_stock ON api_laptop(stock);
-\end{lstlisting}
-
-\subsection{API Endpoints}
-
-\begin{lstlisting}[language=bash, caption={REST API của Laptop Service}]
-GET    /api/laptops/       # Lấy toàn bộ danh sách laptop
-POST   /api/laptops/       # Tạo laptop mới (dành cho Staff)
-GET    /api/laptops/{id}/  # Chi tiết một laptop cụ thể
-PUT    /api/laptops/{id}/  # Cập nhật toàn bộ thông tin
-PATCH  /api/laptops/{id}/  # Cập nhật một phần (ví dụ: chỉ stock)
-DELETE /api/laptops/{id}/  # Xóa laptop
-\end{lstlisting}
-
-\textbf{Output mẫu trả về từ REST API (JSON):}
-\begin{lstlisting}[language=json]
-[
-  {
-    "id": 1,
-    "name": "ThinkPad X1 Carbon Gen 10",
-    "brand": "Lenovo",
-    "price": "35000000.00",
-    "description": "Intel Core i7, 16GB RAM, 512GB SSD",
-    "stock": 15
-  }
-]
-\end{lstlisting}
-
-%--------------------------------------------------------------------------
-\section{Thiết kế Mobile Service (Port 8004)}
-
-Mobile Service có kiến trúc \textbf{đối xứng} (symmetric) với Laptop Service,
-áp dụng cùng thiết kế nhưng cho domain điện thoại di động. Hai service độc lập
-hoàn toàn — có thể deploy và scale riêng biệt.
-
-\subsection{Mô hình dữ liệu (Data Model)}
-
-\begin{lstlisting}[language=Python, caption={mobile\_service/api/models.py}]
-from django.db import models
-
-class Mobile(models.Model):
-    name        = models.CharField(max_length=255)
-    brand       = models.CharField(max_length=100)
-    price       = models.DecimalField(max_digits=12, decimal_places=2)
-    description = models.TextField(blank=True, null=True)
-    stock       = models.IntegerField(default=0)
-
-    def __str__(self):
-        return f"{self.brand} {self.name}"
-\end{lstlisting}
-
-\subsection{Lý do tách biệt khỏi Laptop Service}
-
-Dù model có cấu trúc tương tự, việc tách thành hai service riêng biệt mang lại
-các lợi ích sau:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Domain isolation:} Quy tắc nghiệp vụ của laptop (RAM, CPU, GPU)
-        và mobile (camera, pin, màn hình) sẽ phân kỳ theo thời gian.
-  \item \textbf{Independent scaling:} Nếu mobile được truy vấn nhiều hơn, chỉ
-        cần scale mobile\_service.
-  \item \textbf{Team independence:} Hai team phát triển có thể làm việc trên hai
-        service mà không conflict code.
-  \item \textbf{DDD compliance:} Đây là hai Bounded Context khác nhau (Laptop
-        Domain $\neq$ Mobile Domain) dù cùng thuộc nhóm ``sản phẩm điện tử''.
-\end{itemize}
-
-\subsection{API Endpoints}
-
-\begin{lstlisting}[language=bash, caption={REST API của Mobile Service}]
-GET    /api/mobiles/       # Danh sách điện thoại
-POST   /api/mobiles/       # Tạo sản phẩm mới
-GET    /api/mobiles/{id}/  # Chi tiết sản phẩm
-PUT    /api/mobiles/{id}/  # Cập nhật toàn bộ
-PATCH  /api/mobiles/{id}/  # Cập nhật một phần
-DELETE /api/mobiles/{id}/  # Xóa sản phẩm
-\end{lstlisting}
-
-%--------------------------------------------------------------------------
-\section{Thiết kế Customer Service (Port 8001)}
-
-Customer Service là service phức tạp nhất, đảm nhận \textbf{transactional data}
-của hệ thống: quản lý người dùng, giỏ hàng và đơn hàng. Service dùng \textbf{MySQL}
-vì tính chất ACID-compliant, phù hợp với các giao dịch cần nhất quán dữ liệu cao.
-
-\subsection{Phân loại người dùng}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Customer (Khách hàng):} Đăng ký, đăng nhập, xem sản phẩm, thêm
-        giỏ hàng, đặt hàng, xem lịch sử đơn hàng.
-  \item \textbf{Staff (Nhân viên):} Không đặt hàng, nhưng có quyền xem và xử lý
-        đơn hàng qua Staff Service.
-\end{itemize}
-
-\subsection{Mô hình dữ liệu (Data Model)}
-
-\begin{lstlisting}[language=Python, caption={customer\_service/api/models.py --- Cart \& Order}]
-from django.db import models
-from django.contrib.auth.models import User
-
-# ── Cart (Giỏ hàng) ──────────────────────────────────────────
-class Cart(models.Model):
-    user       = models.OneToOneField(
-                    User, on_delete=models.CASCADE,
-                    null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-class CartItem(models.Model):
-    cart         = models.ForeignKey(
-                    Cart, related_name='items',
-                    on_delete=models.CASCADE)
-    product_type = models.CharField(max_length=20)  # 'laptop' | 'mobile'
-    product_id   = models.IntegerField()
-    quantity     = models.PositiveIntegerField(default=1)
-
-# ── Order (Đơn hàng) ─────────────────────────────────────────
-class Order(models.Model):
-    user        = models.ForeignKey(
-                    User, on_delete=models.CASCADE)
-    status      = models.CharField(max_length=20,
-                                   default='completed')
-    total_price = models.DecimalField(
-                    max_digits=12, decimal_places=2,
-                    default=0.00)
-    created_at  = models.DateTimeField(auto_now_add=True)
-
-class OrderItem(models.Model):
-    order           = models.ForeignKey(
-                        Order, related_name='items',
-                        on_delete=models.CASCADE)
-    product_type    = models.CharField(max_length=20)
-    product_id      = models.IntegerField()
-    product_name    = models.CharField(max_length=255, blank=True)
-    quantity        = models.PositiveIntegerField()
-    price_at_order  = models.DecimalField(
-                        max_digits=12, decimal_places=2)
-\end{lstlisting}
-
-\textbf{Điểm thiết kế đáng chú ý:}
-\begin{itemize}[leftmargin=*]
-  \item \texttt{CartItem.product\_type} và \texttt{CartItem.product\_id}: Thay vì
-        dùng ForeignKey sang Laptop/Mobile table (sẽ phá vỡ database-per-service),
-        service lưu \texttt{product\_type} (``laptop'' hoặc ``mobile'') và
-        \texttt{product\_id} là số nguyên. Khi cần chi tiết sản phẩm, Customer
-        Service gọi API sang service tương ứng.
-  \item \texttt{OrderItem.price\_at\_order}: Lưu \textbf{giá tại thời điểm đặt
-        hàng} thay vì tham chiếu về giá hiện tại. Điều này đảm bảo tính nhất quán
-        lịch sử đơn hàng dù giá sản phẩm sau này thay đổi.
-  \item \texttt{Cart} có quan hệ \texttt{OneToOneField} với \texttt{User}: mỗi
-        người dùng chỉ có duy nhất một giỏ hàng tại một thời điểm.
-\end{itemize}
-
-\subsection{Schema Database (MySQL)}
-
-\begin{lstlisting}[language=SQL, caption={Schema MySQL cho Customer Service}]
--- Bảng cart (giỏ hàng)
-CREATE TABLE api_cart (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    user_id    INT UNIQUE,    -- 1-1 với User
-    created_at DATETIME NOT NULL
-);
-
--- Bảng cart_item
-CREATE TABLE api_cartitem (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    cart_id      INT NOT NULL REFERENCES api_cart(id),
-    product_type VARCHAR(20) NOT NULL,  -- 'laptop' | 'mobile'
-    product_id   INT NOT NULL,
-    quantity     INT UNSIGNED NOT NULL DEFAULT 1
-);
-
--- Bảng order
-CREATE TABLE api_order (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT NOT NULL,
-    status      VARCHAR(20) NOT NULL DEFAULT 'completed',
-    total_price DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    created_at  DATETIME NOT NULL
-);
-
--- Bảng order_item
-CREATE TABLE api_orderitem (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    order_id        INT NOT NULL REFERENCES api_order(id),
-    product_type    VARCHAR(20) NOT NULL,
-    product_id      INT NOT NULL,
-    product_name    VARCHAR(255),
-    quantity        INT UNSIGNED NOT NULL,
-    price_at_order  DECIMAL(12, 2) NOT NULL
-);
-\end{lstlisting}
-
-\subsection{Logic nghiệp vụ Cart}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Add to Cart:} Nếu sản phẩm cùng loại và ID đã tồn tại trong giỏ,
-        tăng số lượng (\texttt{quantity += 1}). Ngược lại tạo \texttt{CartItem} mới.
-  \item \textbf{Checkout:} Lấy toán bộ CartItem, gọi API sang Laptop/Mobile
-        Service để lấy giá hiện tại, tính tổng tiền, tạo \texttt{Order} và các
-        \texttt{OrderItem}, sau đó xóa giỏ hàng.
-  \item \textbf{Stock validation:} Trước khi tạo Order, gọi API kiểm tra
-        \texttt{stock} đủ số lượng yêu cầu.
-\end{itemize}
-
-\subsection{API Endpoints}
-
-\begin{lstlisting}[language=bash, caption={REST API Customer Service}]
-# Auth (Django's built-in)
-POST /api/register/         # Đăng ký tài khoản mới
-POST /api/login/            # Đăng nhập, nhận session/token
-
-# Cart
-GET  /api/cart/             # Xem giỏ hàng hiện tại
-POST /api/cart/add/         # Thêm sản phẩm (product_type, product_id, qty)
-DELETE /api/cart/{item_id}/ # Xóa item khỏi giỏ
-POST /api/cart/checkout/    # Checkout -> tạo Order
-
-# Orders
-GET  /api/orders/           # Lịch sử đơn hàng của user
-GET  /api/orders/{id}/      # Chi tiết đơn hàng
-\end{lstlisting}
-
-%--------------------------------------------------------------------------
-\section{Thiết kế Staff Service (Port 8002)}
-
-Staff Service được thiết kế dành riêng cho \textbf{nhân viên vận hành} hệ thống.
-Không có logic đặt hàng, service này tập trung vào các tác vụ quản trị sản phẩm
-và theo dõi hoạt động hệ thống.
-
-\subsection{Chức năng chính}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Xem và cập nhật sản phẩm:} Staff có quyền cập nhật thông tin
-        sản phẩm, điều chỉnh tồn kho (stock) sau khi nhập hàng.
-  \item \textbf{Xem đơn hàng:} Staff xem danh sách đơn hàng, theo dõi trạng thái
-        để hỗ trợ khách hàng.
-  \item \textbf{Audit trail:} Mọi thao tác của staff được log lại để kiểm soát.
-\end{itemize}
-
-\subsection{Phân quyền (Role-Based Access Control)}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Customer:} Chỉ có quyền truy cập Customer Service API (cart,
-        order). Không truy cập được endpoint của Staff Service.
-  \item \textbf{Staff:} Truy cập Staff Service để quản lý sản phẩm. Không có
-        quyền tạo đơn hàng hoặc truy cập dữ liệu khách hàng khác.
-\end{itemize}
-
-\subsection{API Endpoints}
-
-\begin{lstlisting}[language=bash, caption={REST API Staff Service}]
-GET   /api/staff/laptops/        # Xem danh sách laptop (staff view)
-PATCH /api/staff/laptops/{id}/   # Cập nhật stock laptop
-GET   /api/staff/mobiles/        # Xem danh sách mobile
-PATCH /api/staff/mobiles/{id}/   # Cập nhật stock mobile
-GET   /api/staff/orders/         # Xem tất cả đơn hàng
-\end{lstlisting}
-
-%--------------------------------------------------------------------------
-\section{Thiết kế API Gateway (Nginx + Port 8000)}
-
-API Gateway đóng vai trò \textbf{Single Entry Point} --- là cổng vào duy nhất
-của toàn bộ hệ thống. Hệ thống kiemtra01 sử dụng \textbf{hai lớp gateway}:
-
-\begin{enumerate}[leftmargin=*]
-  \item \textbf{Nginx (Port 80):} Reverse proxy cấp thấp, định tuyến HTTP request
-        theo URL prefix.
-  \item \textbf{API Gateway Service (Port 8000):} Django application xử lý routing
-        thông minh, session management và render giao diện người dùng (UI).
-\end{enumerate}
-
-\subsection{Cấu hình Nginx}
-
-\begin{lstlisting}[language=bash, caption={nginx.conf --- Routing tới các microservice}]
-upstream laptop_service    { server laptop_service:8003; }
-upstream mobile_service    { server mobile_service:8004; }
-upstream customer_service  { server customer_service:8001; }
-upstream staff_service     { server staff_service:8002; }
-upstream ai_service        { server ai-service:8005; }
-
-server {
-    listen 80;
-
-    # Product APIs
-    location /api/laptops/  { proxy_pass http://laptop_service; }
-    location /api/mobiles/  { proxy_pass http://mobile_service; }
-
-    # Customer & Auth
-    location /api/cart/     { proxy_pass http://customer_service; }
-    location /api/orders/   { proxy_pass http://customer_service; }
-
-    # AI Endpoints
-    location /api/ai/       { proxy_pass http://ai_service; }
-
-    # Staff Management
-    location /api/staff/    { proxy_pass http://staff_service; }
-
-    # Tất cả request còn lại → Django frontend (api-gateway)
-    location / {
-        proxy_pass http://api-gateway:8000;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    }
+function heading3(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_3,
+    children: [new TextRun({ text, font: "Arial", size: 24, bold: true, color: "003366" })],
+    spacing: { before: 240, after: 100 },
+  });
 }
-\end{lstlisting}
 
-\subsection{Trách nhiệm của API Gateway}
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Request routing:} Dựa vào URL prefix, chuyển tiếp đến đúng
-        microservice.
-  \item \textbf{Authentication proxy:} Kiểm tra session/cookie của người dùng
-        trước khi forward request.
-  \item \textbf{Response aggregation:} Tổng hợp dữ liệu từ nhiều service (ví dụ:
-        trang sản phẩm cần gọi Laptop Service để lấy danh sách, AI Service để lấy
-        gợi ý) trước khi render template.
-  \item \textbf{Error handling:} Trả về trang lỗi thân thiện nếu một service
-        downstream không phản hồi.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Luồng hệ thống tổng thể}
-
-\subsection{Biểu đồ luồng Sequence (Checkout)}
-Lưu ý mã nguồn Mermaid dưới đây dùng để sinh Sequence Diagram:
-\begin{lstlisting}[language=bash]
-sequenceDiagram
-    actor U as Khách hàng
-    participant G as API Gateway
-    participant C as Customer Service
-    participant P as Product Services
-    
-    U->>G: POST /api/cart/checkout/
-    G->>C: Forward Checkout Request
-    C->>P: GET /api/laptops/{id}/ (Fetch Price)
-    P-->>C: Trả về giá chuẩn xác định
-    C->>C: Tính Total, Lưu Order, Xóa CartItem
-    C-->>G: HTTP 201 Created (Order Detail)
-    G-->>U: Hiển thị Đặt hàng thành công
-\end{lstlisting}
-
-\subsection{Luồng tương tác chính}
-
-Dưới đây là luồng tương tác chính của hệ thống từ góc nhìn người dùng:
-
-\begin{enumerate}[leftmargin=*]
-  \item \textbf{Đăng ký / Đăng nhập:} Người dùng truy cập \texttt{http://localhost}
-        → Nginx chuyển về API Gateway → Customer Service xử lý xác thực.
-  \item \textbf{Xem sản phẩm:} API Gateway gọi song song Laptop Service và Mobile
-        Service, tổng hợp kết quả hiển thị lên trang chủ.
-  \item \textbf{Thêm vào giỏ hàng:} Request đến Customer Service API
-        (\texttt{POST /api/cart/add/}), lưu \texttt{CartItem} vào MySQL.
-  \item \textbf{Checkout:} Customer Service lấy giá từ Laptop/Mobile Service,
-        tính tổng, tạo Order, xóa Cart.
-  \item \textbf{Tư vấn AI:} Người dùng nhập câu hỏi vào chatbot → AI Service
-        xử lý RAG Pipeline → trả về gợi ý sản phẩm bằng tiếng Việt.
-\end{enumerate}
-
-%--------------------------------------------------------------------------
-\section{Hướng dẫn thực hành}
-
-\subsection{Mục tiêu}
-
-Sinh viên cần hoàn thành các mục tiêu sau sau khi nghiên cứu Chương 2:
-
-\begin{itemize}[leftmargin=*]
-  \item Thiết kế Class Diagram cho toàn bộ hệ thống bằng Visual Paradigm (VP).
-  \item Mapping từ Class Diagram sang Database Schema.
-  \item Triển khai Database theo từng service (MySQL / PostgreSQL).
-  \item Hiểu và giải thích lý do chọn loại database cho từng service.
-\end{itemize}
-
-\subsection{Hướng dẫn vẽ Class Diagram bằng Visual Paradigm}
-
-\textbf{Bước 1: Xác định lớp (Classes)}
-
-Sinh viên xác định các lớp chính theo từng service:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Laptop Service:} \texttt{Laptop}
-  \item \textbf{Mobile Service:} \texttt{Mobile}
-  \item \textbf{Customer Service:} \texttt{User}, \texttt{Cart}, \texttt{CartItem},
-        \texttt{Order}, \texttt{OrderItem}
-  \item \textbf{AI Service:} \texttt{ProductMetadata}, \texttt{UserViewLog}
-\end{itemize}
-
-\textbf{Bước 2: Xác định thuộc tính}
-
-Ví dụ lớp \texttt{Laptop}:
-
-\begin{itemize}[leftmargin=*]
-  \item \texttt{id: int} (PK)
-  \item \texttt{name: string}
-  \item \texttt{brand: string}
-  \item \texttt{price: decimal}
-  \item \texttt{description: string}
-  \item \texttt{stock: int}
-\end{itemize}
-
-\textbf{Bước 3: Xác định quan hệ (Relationships)}
-
-\begin{itemize}[leftmargin=*]
-  \item \texttt{User} $\longrightarrow$ \texttt{Cart}: 1..1 (OneToOne)
-  \item \texttt{Cart} $\longrightarrow$ \texttt{CartItem}: 1..* (Composition)
-  \item \texttt{User} $\longrightarrow$ \texttt{Order}: 1..* (một user nhiều đơn hàng)
-  \item \texttt{Order} $\longrightarrow$ \texttt{OrderItem}: 1..* (Composition)
-\end{itemize}
-
-\textbf{Định dạng Class Diagram theo ngôn ngữ Mermaid:}
-\begin{lstlisting}[language=bash]
-classDiagram
-    class User {
-        +int id
-        +string username
-    }
-    class Cart {
-        +int id
-        +datetime created_at
-    }
-    class Order {
-        +int id
-        +string status
-        +float total_price
-    }
-    class Laptop {
-        +int id
-        +string name
-        +decimal price
-    }
-    User "1" -- "1" Cart : Owns
-    User "1" -- "*" Order : Places
-    Cart "1" *-- "*" CartItem : Contains
-    Order "1" *-- "*" OrderItem : Contains
-\end{lstlisting}
-
-\subsection{Mapping Class Diagram sang Database}
-
-\textbf{Nguyên tắc ánh xạ (Object-Relational Mapping):}
-
-\begin{table}[H]
-  \centering
-  \caption{Quy tắc ánh xạ Class Diagram sang Database}
-  \begin{tabular}{ll}
-    \toprule
-    \textbf{Khái niệm OOP}  & \textbf{Khái niệm Database}      \\
-    \midrule
-    Class                   & Table                            \\
-    Attribute               & Column                           \\
-    Data type               & SQL Type                         \\
-    1-to-many relationship  & Foreign Key                      \\
-    1-to-1 relationship     & FK + UNIQUE constraint           \\
-    Many-to-many            & Junction table (bảng liên kết)   \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\textbf{Ví dụ ánh xạ cụ thể:}
-
-\begin{lstlisting}[language=bash]
-# Class model
-Cart(id, user_id, created_at)
-CartItem(id, cart_id -> FK(Cart), product_type, product_id, quantity)
-
-# => Database
-CREATE TABLE api_cart (id, user_id UNIQUE, created_at);
-CREATE TABLE api_cartitem (
-    id, cart_id INT REFERENCES api_cart(id),
-    product_type, product_id, quantity
-);
-\end{lstlisting}
-
-\subsection{Thiết kế Database cho từng Service}
-
-\textbf{Laptop Service \& Mobile Service --- PostgreSQL}
-
-Lý do chọn PostgreSQL:
-\begin{itemize}[leftmargin=*]
-  \item Hỗ trợ kiểu dữ liệu \texttt{JSONB} tốt --- thuận tiện khi cần mở rộng
-        thêm attributes đặc thù (GPU, RAM, OS).
-  \item Hỗ trợ Full-Text Search nội tại, giúp tìm kiếm sản phẩm theo mô tả.
-  \item Xử lý quan hệ phức tạp tốt hơn MySQL trong các truy vấn kết hợp nhiều bảng.
-\end{itemize}
-
-\begin{lstlisting}[language=SQL, caption={Product Services Database (PostgreSQL)}]
--- laptop_service database
-CREATE TABLE api_laptop (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    brand       VARCHAR(100) NOT NULL,
-    price       DECIMAL(12, 2) NOT NULL,
-    description TEXT,
-    stock       INTEGER NOT NULL DEFAULT 0
-);
-
--- mobile_service database (cùng cấu trúc, schema riêng)
-CREATE TABLE api_mobile (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    brand       VARCHAR(100) NOT NULL,
-    price       DECIMAL(12, 2) NOT NULL,
-    description TEXT,
-    stock       INTEGER NOT NULL DEFAULT 0
-);
-\end{lstlisting}
-
-\textbf{Customer Service --- MySQL}
-
-Lý do chọn MySQL:
-\begin{itemize}[leftmargin=*]
-  \item ACID compliance mạnh mẽ, phù hợp với transactional data (đặt hàng,
-        thanh toán).
-  \item Phổ biến, tài liệu phong phú, dễ tích hợp với Django ORM.
-  \item Hiệu năng cao cho các truy vấn đọc/ghi đơn giản trên bảng cart và order.
-\end{itemize}
-
-\begin{lstlisting}[language=SQL, caption={Customer Service Database (MySQL)}]
-CREATE TABLE api_cart (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    user_id    INT UNIQUE,
-    created_at DATETIME NOT NULL
-);
-
-CREATE TABLE api_cartitem (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    cart_id      INT NOT NULL,
-    product_type VARCHAR(20) NOT NULL,
-    product_id   INT NOT NULL,
-    quantity     INT UNSIGNED NOT NULL DEFAULT 1,
-    FOREIGN KEY (cart_id) REFERENCES api_cart(id)
-);
-
-CREATE TABLE api_order (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT NOT NULL,
-    status      VARCHAR(20) NOT NULL DEFAULT 'completed',
-    total_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-    created_at  DATETIME NOT NULL
-);
-
-CREATE TABLE api_orderitem (
-    id             INT AUTO_INCREMENT PRIMARY KEY,
-    order_id       INT NOT NULL,
-    product_type   VARCHAR(20) NOT NULL,
-    product_id     INT NOT NULL,
-    product_name   VARCHAR(255),
-    quantity       INT UNSIGNED NOT NULL,
-    price_at_order DECIMAL(12,2) NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES api_order(id)
-);
-\end{lstlisting}
-
-\subsection{So sánh MySQL và PostgreSQL}
-
-\begin{table}[H]
-  \centering
-  \caption{So sánh MySQL và PostgreSQL trong ngữ cảnh kiemtra01}
-  \begin{tabular}{lll}
-    \toprule
-    \textbf{Tiêu chí}        & \textbf{MySQL}             & \textbf{PostgreSQL}         \\
-    \midrule
-    ACID compliance          & Có (InnoDB)                & Có (mặc định)               \\
-    JSON support             & Trung bình (\texttt{JSON}) & Tốt (\texttt{JSONB})        \\
-    Full-text search         & Có (hạn chế)               & Mạnh (tích hợp sẵn)         \\
-    Hiệu năng đọc đơn giản   & Rất tốt                    & Tốt                         \\
-    Quan hệ phức tạp         & Trung bình                 & Tốt hơn                     \\
-    Kiểu dữ liệu nâng cao   & Ít                         & Nhiều (array, hstore, UUID) \\
-    Phổ biến trên hosting    & Rất cao                    & Cao                         \\
-    Dùng cho kiemtra01       & Cart, Order (transact.)    & Laptop, Mobile, AI (search) \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\subsection{Checklist đánh giá}
-
-\begin{itemize}[leftmargin=*]
-  \item[$\square$] Có Class Diagram đầy đủ tất cả service bằng Visual Paradigm.
-  \item[$\square$] Mapping rõ ràng từ Class sang Table, Attribute sang Column.
-  \item[$\square$] Database tách riêng từng service (database-per-service).
-  \item[$\square$] Sử dụng cả MySQL (Customer Service) và PostgreSQL
-        (Laptop/Mobile Service).
-  \item[$\square$] Có index hợp lý trên các cột hay được query.
-  \item[$\square$] Trường \texttt{price\_at\_order} lưu đúng giá tại thời điểm
-        đặt hàng.
-\end{itemize}
-
-%--------------------------------------------------------------------------
-\section{Kết luận}
-
-Chương 2 đã trình bày chi tiết quá trình thiết kế và triển khai 6 Bounded Context
-của hệ thống kiemtra01:
-
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Kiến trúc microservices} giúp hệ thống linh hoạt --- mỗi service
-        có thể phát triển, test và deploy độc lập.
-  \item \textbf{Django + DRF} phù hợp cho rapid development các REST API với ORM
-        mạnh mẽ, giảm thiểu boilerplate code.
-  \item \textbf{DDD} giúp thiết kế đúng ranh giới service ngay từ đầu, tránh
-        các anti-pattern như service biết quá nhiều về domain khác.
-  \item \textbf{Database-per-service pattern} đảm bảo không có sự phụ thuộc dữ
-        liệu trực tiếp --- thay đổi schema của Laptop Service không ảnh hưởng đến
-        Customer Service.
-\end{itemize}
-
-Sang Chương 3, chúng ta sẽ đi sâu vào thành phần phức tạp nhất của hệ thống:
-\textbf{AI Service} --- nơi kết hợp Semantic Search, Knowledge Graph và RAG Pipeline
-để tạo ra trải nghiệm mua sắm thông minh.
-
-%==========================================================================
-%                       CHAPTER 3
-%==========================================================================
-\chapter{AI Service cho tư vấn sản phẩm}
-
-\section{Mục tiêu}
-
-Xây dựng hệ thống AI gợi ý sản phẩm dựa trên:
-\begin{itemize}[leftmargin=*]
-  \item Hành vi người dùng (click, search, add-to-cart, purchase)
-  \item Quan hệ sản phẩm (similarity based on embeddings)
-  \item Ngữ cảnh truy vấn (chatbot tư vấn theo ngữ nghĩa)
-\end{itemize}
-
-Đầu ra của hệ thống (Output):
-\begin{itemize}[leftmargin=*]
-  \item Danh sách sản phẩm đề xuất (Recommendation List) hiển thị trên giao diện theo thời gian thực.
-  \item Trợ lý ảo (Chatbot tư vấn) hỗ trợ khách hàng qua ngôn ngữ tự nhiên.
-\end{itemize}
-
-\section{Kiến trúc AI Service Pipeline}
-
-AI Service được thiết kế như một microservice độc lập (Chạy trên port 8005) giao tiếp qua REST API.
-
-\textbf{Quy trình luồng xử lý (Pipeline):}
-\begin{enumerate}
-    \item \textbf{Input:} Thu thập User Behavior từ Customer Service và NLP query từ cửa sổ chat.
-    \item \textbf{Processing:}
-      \begin{itemize}
-        \item \textit{Deep Learning (BiLSTM):} Dự đoán sở thích tiếp theo theo thời gian thực.
-        \item \textit{Knowledge Graph (Neo4j):} Tìm kiếm Collaborative Filtering.
-        \item \textit{RAG (Vector DB + LLM):} Hiểu ngữ cảnh và tư vấn dạng ngôn ngữ tự nhiên.
-      \end{itemize}
-    \item \textbf{Output:} Phản hồi JSON chứa văn bản tư vấn và danh sách sản phẩm (Product metadata).
-\end{enumerate}
-
-\section{Thu thập dữ liệu (Data Pipeline)}
-
-\subsection{User Behavior Data}
-Chúng tôi đã sử dụng 2 bộ dữ liệu (Dataset) thử nghiệm:
-\begin{itemize}
-    \item \textbf{Dataset 2 (Mobile Shopping):} Gồm thao tác của 300 người dùng lướt xem các danh mục smartphone. Người dùng có xu hướng lặp lại việc so sánh thông số trước khi mua.
-    \item \textbf{Dataset 3 (Tech Accessories):} Tập dữ liệu mở rộng chứa thao tác add-to-cart của 500 người dùng với Laptop, Tablet, và bàn phím.
-\end{itemize}
-
-Thông tin tracking mỗi hành vi bao gồm:
-\texttt{user\_id, product\_id, action (view, click, add\_to\_cart, buy), timestamp}.
-
-\subsection{Ví dụ cấu trúc Dataset}
-\begin{lstlisting}[language=bash, caption={Dữ liệu mẫu data\_user500.csv}]
-user_id, product_id, product_type, action, time
-1, 101, laptop, view, 2026-06-01T10:00:00Z
-1, 102, laptop, view, 2026-06-01T10:05:00Z
-1, 102, laptop, add_to_cart, 2026-06-01T10:06:00Z
-2, 205, mobile, purchase, 2026-06-02T11:00:00Z
-\end{lstlisting}
-
-\section{Mô hình Sequence Modeling (Deep Learning)}
-
-\subsection{Ý tưởng}
-Để dự đoán sản phẩm tiếp theo, hệ thống phân tích chuỗi hành vi. Cần chọn một mô hình có khả năng lưu giữ ngữ cảnh thời gian trên tập chuỗi hành động này.
-
-\subsection{Các mô hình sử dụng và so sánh}
-Chúng tôi so sánh 3 cấu trúc học sâu (Deep Learning):
-\begin{enumerate}
-    \item \textbf{RNN (Recurrent Neural Network):} Cơ bản, dễ bị vanishing gradient khi phiên làm việc của user dài.
-    \item \textbf{LSTM (Long Short-Term Memory):} Cải thiện mạnh việc nhớ các event quan trọng nhờ các cơ chế gates.
-    \item \textbf{BiLSTM (Bidirectional LSTM):} Khảo sát hành vi cả từ quá khứ đến hiện tại và hiện tại đối chiếu lại quá khứ (Ví dụ: khách hàng hay quay về xem mặt hàng đầu tiên sau khi đã xem 3 mặt hàng khác).
-\end{enumerate}
-
-
-\textbf{Mã Markdown Mermaid Chart:}
-\begin{lstlisting}[language=bash]
-gantt
-    title So sánh hiệu năng của RNN, LSTM, BiLSTM (Accuracy %)
-    dateFormat YYYY-MM-DD
-    axisFormat %m-%d
-
-    section RNN
-    Thực tế 68.4%   : a1, 2026-06-01, 68d
-    
-    section LSTM
-    Thực tế 82.1%   : a2, 2026-06-01, 82d
-    
-    section BiLSTM
-    Thực tế 88.5%   : a3, 2026-06-01, 88d
-\end{lstlisting}
-\textbf{Nhận xét:} Mô hình BiLSTM thể hiện tính ưu việt rõ rệt trên bộ dataset E-commerce, do người tiêu dùng có tính so sánh vòng lặp cao, việc xử lý Bidirectional giúp model nắm bắt logic tốt hơn so với mô hình một chiều. Ta chọn BiLSTM làm mô hình chiến lược.
-
-\subsection{Mô hình chi tiết và Code}
-\begin{lstlisting}[language=Python, caption={Cấu trúc Model BiLSTM chuẩn trên PyTorch}]
-import torch
-import torch.nn as nn
-
-class RecommendationBiLSTM(nn.Module):
-    def __init__(self, input_dim=20, hidden_dim=64, output_dim=1000):
-        super(RecommendationBiLSTM, self).__init__()
-        # Kích hoạt bidirectional
-        self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True, bidirectional=True)
-        # Nối hidden_dim do tính chất 2 chiều
-        self.fc = nn.Linear(hidden_dim * 2, output_dim)
-
-    def forward(self, x):
-        out, _ = self.lstm(x)
-        out = out[:, -1, :] # Chỉ lấy state ở time step cuối
-        return self.fc(out)
-\end{lstlisting}
-
-\subsection{Quá trình Training}
-\begin{lstlisting}[language=Python, caption={Vòng lặp Training BiLSTM Model}]
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
-for epoch in range(epochs):
-    model.train()
-    optimizer.zero_grad()
-    
-    output = model(X_train)
-    loss = criterion(output, y_train)
-    loss.backward()
-    
-    optimizer.step()
-    
-    if epoch % 10 == 0:
-        print(f"Epoch {epoch}, Loss: {loss.item()}")
-\end{lstlisting}
-
-\section{Knowledge Graph với Neo4j}
-
-\subsection{Mô hình đồ thị}
-Đồ thị (Graph) được biểu diễn bằng Nodes và Edges:
-\begin{itemize}
-    \item \textbf{Node:} User, Product
-    \item \textbf{Edge:} \texttt{BUY}, \texttt{VIEW}, \texttt{SIMILAR}
-\end{itemize}
-
-\subsection{Ví dụ Cypher (Ngôn ngữ truy vấn Graph)}
-Tạo Node và Edge:
-\begin{lstlisting}[language=SQL]
-CREATE (u:User {id: 1})
-CREATE (p:Product {id: 101, name: "MacBook Pro"})
-CREATE (u)-[:BUY]->(p)
-\end{lstlisting}
-
-Truy vấn Collaborative Filtering (Khách hàng tương tự):
-\begin{lstlisting}[language=SQL]
-MATCH (u:User {id: 1})-[:BUY]->(p:Product)<-[:BUY]-(other:User)
-MATCH (other)-[:BUY]->(rec:Product)
-WHERE u <> other AND NOT (u)-[:BUY]->(rec)
-RETURN rec.name AS Recommendation, count(*) AS strength
-ORDER BY strength DESC LIMIT 5;
-\end{lstlisting}
-
-\section{RAG (Retrieval-Augmented Generation)}
-
-\subsection{Luồng RAG Pipeline}
-\begin{enumerate}
-    \item \textbf{Retrieve (Tìm kiếm):} Câu hỏi của user được embedding qua \texttt{all-MiniLM-L6-v2} và tính khoảng cách Cosine Similarity với mảng \texttt{ProductMetadata} (tìm trong Vector Database).
-    \item \textbf{Context (Bổ sung dữ liệu):} Trích xuất lịch sử User từ Neo4j để ghép chung với sản phẩm vừa retrieve.
-    \item \textbf{Generate (Sinh hội thoại):} Đưa Context + Message gửi lên LLM (như LLaMA hoặc Gemini) thông báo trả lời khách hàng dưới dạng Chat.
-\end{enumerate}
-
-\subsection{Ví dụ Vector Database Search}
-\begin{lstlisting}[language=Python]
-query = "tìm laptop mỏng nhẹ giá dưới 20 triệu"
-query_emb = generate_embedding(query)
-results = vector_db.search(query_emb, top_k=3)
-response = LLM.generate(prompt=build_prompt(query, results, user_history))
-\end{lstlisting}
-
-\section{Hai dạng API AI Service cung cấp}
-
-\subsection{Recommendation List (Dành cho trang chủ / giỏ hàng)}
-Cung cấp mảng sản phẩm liên tiếp.
-\begin{lstlisting}[language=bash]
-GET /api/recommendations/?user_id=1
-# Output:
-[
-  {"id": 101, "name": "Dell XPS 13", "score": 0.95},
-  {"id": 105, "name": "Asus Zenbook", "score": 0.88}
-]
-\end{lstlisting}
-
-\subsection{Chatbot Tư vấn (Dành cho Cửa sổ Chat góc phải)}
-Tích hợp giao diện e-commerce.
-\begin{lstlisting}[language=bash]
-POST /api/chat/
-Body: {"user_id": 1, "message": "Có chuột nào hợp với máy Mac không?"}
-
-# Output:
-{
-  "reply": "Chào bạn, với máy Mac bạn có thể tham khảo dòng chuột Logitech MX Master 3S nhé...",
-  "products": [...] # Kèm danh sách render Product Card
+function para(text, opts = {}) {
+  return new Paragraph({
+    children: [new TextRun({ text, font: "Arial", size: 22, ...opts })],
+    spacing: { before: 80, after: 100 },
+    alignment: AlignmentType.JUSTIFIED,
+  });
 }
-\end{lstlisting}
 
-\section{Checklist đánh giá}
-\begin{itemize}[leftmargin=*]
-  \item[$\square$] Có pipeline AI rõ ràng (Behavior Tracking $\rightarrow$ Model $\rightarrow$ DB).
-  \item[$\square$] Có mô hình dự đoán (Sequence modeling BiLSTM).
-  \item[$\square$] Có thử nghiệm dataset và biểu đồ so sánh các thuật toán DL.
-  \item[$\square$] Có chạy Neo4j Graph và RAG Pipeline thực tế tích hợp chatbot.
-  \item[$\square$] Có API hoạt động, sẵn sàng render lên Frontend.
-\end{itemize}
-
-%==========================================================================
-%                       CHAPTER 4
-%==========================================================================
-\chapter{Xây dựng Hệ thống E-commerce Hoàn chỉnh}
-
-\section{Kiến trúc Tổng thể}
-
-\subsection{Mô hình hệ thống}
-Hệ thống \textbf{kiemtra01} bao gồm hơn 10 container vận hành độc lập.
-\begin{itemize}
-    \item \textbf{frontend / api-gateway (Django + Nginx, port 80/8000)} --- Điểm vào duy nhất.
-    \item \textbf{customer-service (port 8001, MySQL)} --- Quản lý khách, giỏ hàng, đơn hàng.
-    \item \textbf{staff-service (port 8002, MySQL)} --- Đứng sau gateway, quản lý xử lý đơn hàng.
-    \item \textbf{laptop-service (port 8003, PostgreSQL)} --- Quản lý riêng mảng Laptop.
-    \item \textbf{mobile-service (port 8004, PostgreSQL)} --- Quản lý riêng mảng Mobile.
-    \item \textbf{ai-service (port 8005, PostgreSQL + Neo4j)} --- Gợi ý AI và LLM Chatbot.
-\end{itemize}
-
-\subsection{Kiến trúc hệ thống (System Architecture)}
-\textbf{Sơ đồ Code luồng System Architecture:}
-\begin{lstlisting}[language=bash]
-flowchart TD
-    Client((Client)) --> |HTTP| Nginx{API Gateway Nginx :80}
-    Nginx --> |/api/cart, /api/orders| Customer(Customer Service :8001)
-    Nginx --> |/api/staff| Staff(Staff Service :8002)
-    Nginx --> |/api/laptops| Laptop(Laptop Service :8003)
-    Nginx --> |/api/mobiles| Mobile(Mobile Service :8004)
-    Nginx --> |/api/chat| AI(AI Service :8005)
-
-    Customer --> |Sync REST| MySQL[(MySQL DB)]
-    Staff --> |Analyze| MySQL
-    Laptop --> |Sync| Postgres[(PostgreSQL DB)]
-    Mobile --> |Sync| Postgres
-    AI --> |Vector Search| Postgres
-    AI --> |Graph Context| Neo4j[(Neo4j DB)]
-\end{lstlisting}
-Áp dụng \textbf{Microservice Architecture} với Data-Isolation tuyệt đối, giao tiếp đồng bộ (Synchronous REST API) và bất đồng bộ (Celery / RabbitMQ nếu mở rộng sau này).
-
-\subsection{Stack Công nghệ}
-\begin{table}[H]
-  \centering
-  \caption{Stack công nghệ hệ thống}
-  \begin{tabular}{lll}
-    \toprule
-    \textbf{Thành phần} & \textbf{Công nghệ} & \textbf{Lý do chọn} \\
-    \midrule
-    Backend        & Django 5.x + DRF & Rapid development, ORM mạnh mẽ \\
-    DB Quan hệ      & MySQL 8.0 & Phổ biến, ACID cực tốt cho đơn hàng \\
-    Product DB     & PostgreSQL 15 & Hỗ trợ Vector search và JSONB dữ liệu phẳng \\
-    Graph DB       & Neo4j 5.x & Lưu trữ liên kết Collaborative cho User-Product \\
-    Container      & Docker + Compose & Đồng nhất môi trường \\
-    Proxy          & Nginx & High-performance Reverse Proxy \\
-    AI/ML          & PyTorch, LLaMA / Gemini & Mạnh mẽ dễ dùng cho RAG \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\section{Chi tiết Từng Service}
-
-\subsection{1. API Gateway (Nginx)}
-Configuration Routing Proxy:
-\begin{lstlisting}[language=bash]
-upstream laptop_service { server laptop_service:8003; }
-upstream ai_service     { server ai-service:8005; }
-
-server {
-    listen 80;
-    
-    location /api/laptops/ { proxy_pass http://laptop_service; }
-    location /api/ai/      { proxy_pass http://ai_service; }
-    
-    location / {
-        proxy_pass http://api-gateway:8000;
-        proxy_set_header Host $host;
-    }
+function bullet(text, level = 0) {
+  return new Paragraph({
+    numbering: { reference: "bullets", level },
+    children: [new TextRun({ text, font: "Arial", size: 22 })],
+    spacing: { before: 40, after: 40 },
+  });
 }
-\end{lstlisting}
 
-\subsection{2. Customer Service \& Giao dịch}
-Quản lý luồng Cart $\rightarrow$ Order. Khi một user mua hàng, hệ thống lưu lại \texttt{price\_at\_order} để giữ biên lai không bị trôi giá nếu sau này Laptop thay đổi giá.
+function numItem(text, level = 0) {
+  return new Paragraph({
+    numbering: { reference: "numbers", level },
+    children: [new TextRun({ text, font: "Arial", size: 22 })],
+    spacing: { before: 40, after: 40 },
+  });
+}
 
-\section{Database Schema Tổng quát}
+function boldBullet(label, text) {
+  return new Paragraph({
+    numbering: { reference: "bullets", level: 0 },
+    children: [
+      new TextRun({ text: label + ": ", font: "Arial", size: 22, bold: true }),
+      new TextRun({ text, font: "Arial", size: 22 }),
+    ],
+    spacing: { before: 40, after: 40 },
+  });
+}
 
-\textbf{Product (Laptop) DB - Postgres:}
-\begin{lstlisting}[language=SQL]
-CREATE TABLE api_laptop (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255), brand VARCHAR(100),
-    price DECIMAL(10,2), stock INT
-);
-\end{lstlisting}
+function codeBlock(lines) {
+  return new Paragraph({
+    children: [new TextRun({ text: lines, font: "Courier New", size: 18, color: "1a1a1a" })],
+    spacing: { before: 60, after: 60 },
+    shading: { fill: "F0F0F0", type: ShadingType.CLEAR },
+    indent: { left: 360 },
+  });
+}
 
-\textbf{Customer Order DB - MySQL:}
-\begin{lstlisting}[language=SQL]
-CREATE TABLE api_order (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT, status VARCHAR(50), total_price FLOAT
-);
-\end{lstlisting}
+function spacer() {
+  return new Paragraph({ children: [new TextRun("")], spacing: { before: 60, after: 60 } });
+}
 
-\section{Docker Deployment}
+function tableHeaderCell(text, width) {
+  return new TableCell({
+    borders,
+    width: { size: width, type: WidthType.DXA },
+    shading: { fill: PTC.tableheader, type: ShadingType.CLEAR },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    children: [new Paragraph({
+      children: [new TextRun({ text, font: "Arial", size: 20, bold: true, color: PTC.white })],
+      alignment: AlignmentType.CENTER,
+    })],
+  });
+}
 
-\subsection{Cấu trúc docker-compose.yml}
-Ví dụ cấu hình \texttt{docker-compose.yml} của AI Service để link với các base db:
-\begin{lstlisting}[language=docker-compose]
-  ai-service:
-    build: ./ai_service
-    ports:
-      - "8005:8005"
-    environment:
-      - DB_HOST=db_postgres
-      - NEO4J_URI=bolt://neo4j:7687
-    depends_on:
-      - db_postgres
-      - neo4j
-    networks:
-      - my_network
-\end{lstlisting}
+function tableCell(text, width, fill = "FFFFFF", bold = false) {
+  return new TableCell({
+    borders,
+    width: { size: width, type: WidthType.DXA },
+    shading: { fill, type: ShadingType.CLEAR },
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+    children: [new Paragraph({
+      children: [new TextRun({ text, font: "Arial", size: 20, bold })],
+    })],
+  });
+}
 
-\subsection{Khởi chạy hệ thống}
-\begin{lstlisting}[language=bash]
-# Build image và khởi chạy
-docker-compose up --build -d
+function sectionNote(text) {
+  return new Paragraph({
+    children: [new TextRun({ text, font: "Arial", size: 20, italics: true, color: PTC.darkgray })],
+    spacing: { before: 80, after: 80 },
+    shading: { fill: PTC.lightblue, type: ShadingType.CLEAR },
+    indent: { left: 360, right: 360 },
+    border: { left: { style: BorderStyle.SINGLE, size: 8, color: PTC.ptitblue } },
+  });
+}
 
-# Check trạng thái tất cả các service
-docker-compose ps
+// ─── CONTENT ───────────────────────────────────────────────────────────────
 
-# Xem log realtime của một service riêng biệt
-docker-compose logs -f ai-service
-\end{lstlisting}
+const chap1 = [
+  heading1("CHƯƠNG 1. TỪ MONOLITHIC ĐẾN MICROSERVICES VÀ DDD"),
 
-\section{Authentication Security \& Monitoring}
-\subsection{Security}
-Tất cả endpoint đều được khóa bởi Authentication lớp giữa (Mid-ware) JWT Token cấp phát từ Customer Service. Sử dụng cấu hình CSRF/CORS chặt chẽ tại Gateway.
+  // 1.1
+  heading2("1.1. Giới thiệu Monolithic Architecture"),
+  heading3("1.1.1. Khái niệm"),
+  para("Monolithic Architecture (kiến trúc nguyên khối) là phong cách thiết kế phần mềm trong đó toàn bộ hệ thống — gồm giao diện người dùng, logic nghiệp vụ và truy xuất dữ liệu — được xây dựng, vận hành và triển khai như một ứng dụng duy nhất. Tất cả các thành phần nằm trong cùng một codebase và chạy trong cùng một tiến trình."),
+  para("Đặc trưng nổi bật của kiến trúc monolithic là sự liên kết chặt chẽ (tight coupling) giữa các module. Vì không có ranh giới rõ ràng, sự thay đổi ở bất kỳ phần nào đều có thể tạo ra tác động dây chuyền lan ra toàn hệ thống. Ngoài ra, mọi cập nhật — dù nhỏ — đều đòi hỏi phải build và deploy lại toàn bộ ứng dụng (single deployment unit)."),
+  para("Với hệ thống thương mại điện tử dược phẩm (Pharma E-Commerce), kiến trúc monolithic giúp khởi động nhanh vì chỉ cần một codebase, một database và một pipeline deploy. Tuy nhiên khi hệ thống mở rộng sang nhiều nghiệp vụ — quản lý sản phẩm dược, giỏ hàng, thanh toán, vận chuyển, tư vấn AI và kiểm soát tồn kho — mỗi thay đổi nhỏ có thể ảnh hưởng toàn bộ ứng dụng."),
 
-\subsection{Monitoring \& Troubleshooting}
-\begin{itemize}
-    \item \textbf{Lỗi Cart items:} Nếu thêm giỏ bị lỗi, cần check logs Customer Service xem MySQL đã cấp kết nối ổn định chưa.
-    \item \textbf{Chatbot Disconnect:} Kiểm tra Neo4j (Port 7474) đã sẵn sàng trước khi AI service mount hay chưa. (Tăng timing vào \texttt{depends\_on} bằng \texttt{service\_healthy}).
-\end{itemize}
+  heading3("1.1.2. Cấu trúc điển hình"),
+  para("Kiến trúc monolithic thường được tổ chức theo mô hình phân tầng (Layered Architecture) để tách biệt trách nhiệm trong hệ thống. Một cấu trúc điển hình gồm bốn tầng:"),
+  boldBullet("Presentation Layer", "Xử lý giao tiếp với người dùng: tiếp nhận request, trả về response hoặc render giao diện."),
+  boldBullet("Business Logic Layer", "Thực thi các quy tắc nghiệp vụ và điều phối luồng xử lý chính của hệ thống."),
+  boldBullet("Data Access Layer", "Tương tác với cơ sở dữ liệu qua các thao tác CRUD thông qua ORM hoặc query trực tiếp."),
+  boldBullet("Shared Database", "Một cơ sở dữ liệu dùng chung cho tất cả các module trong hệ thống."),
 
-\section{Thể hiện Luồng End-to-End Trực quan}
-Luồng Mua hàng kèm tư vấn:
-\begin{enumerate}
-    \item User vào trang chủ (Nginx $\rightarrow$ API Gateway).
-    \item Frontend hiển thị Laptops/Mobiles lấy nhanh qua REST.
-    \item User chat hỏi Bot: "Dell có máy nào dưới 20 triệu?".
-    \item \textbf{AI Service} gọi RAG Vector Search Postgre $\rightarrow$ Trả về \textbf{Dell Vostro}.
-    \item User bấm "Thêm vào giỏ" ngay từ khung Chat. (Customer Service nhận gói POST lưu DB).
-    \item Hoàn thành đặt hàng $\rightarrow$ cập nhật History trên Neo4j.
-\end{enumerate}
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2200, 6826],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Lớp", 2200), tableHeaderCell("Vai trò trong hệ Pharma E-Commerce", 6826)] }),
+      new TableRow({ children: [tableCell("Presentation", 2200, PTC.gray), tableCell("Trang sản phẩm, giỏ hàng, checkout, chatbot tư vấn", 6826)] }),
+      new TableRow({ children: [tableCell("Business Logic", 2200, PTC.gray), tableCell("Đăng nhập, quản lý sản phẩm, tính tiền, kiểm tra tồn kho, tạo đơn", 6826)] }),
+      new TableRow({ children: [tableCell("Data Access", 2200, PTC.gray), tableCell("Repository/ORM truy vấn user, product, cart, order trong cùng ứng dụng", 6826)] }),
+      new TableRow({ children: [tableCell("Shared Database", 2200, PTC.gray), tableCell("Một schema/database lưu toàn bộ dữ liệu nghiệp vụ", 6826)] }),
+    ],
+  }),
+  para("Bảng 1.1. Cấu trúc điển hình của Monolithic", { italics: true, size: 20 }),
 
-%==========================================================================
-%                           KẾT LUẬN
-%==========================================================================
-\chapter*{Kết luận}
-\addcontentsline{toc}{chapter}{Kết luận}
+  heading3("1.1.3. Ví dụ thực tế"),
+  para("Nếu xây dựng nhà thuốc online theo monolithic, các module User, Product Catalog, Cart, Order, Payment, Shipping và AI Consultation đều nằm trong cùng một project Django. Khi người dùng hỏi chatbot về triệu chứng ho, cùng ứng dụng đó vừa xử lý request AI, vừa có thể truy vấn sản phẩm, vừa thao tác giỏ hàng. Cách tiếp cận này dễ demo ban đầu nhưng khiến AI và nghiệp vụ bán hàng phụ thuộc chặt vào nhau — khi AI lỗi, toàn bộ luồng mua hàng cũng bị ảnh hưởng."),
+  para("Biểu đồ lớp pha phân tích cho thấy hệ thống Pharma E-Commerce monolithic bao gồm nhóm quản lý chủ thể (User, Staff, Address), nhóm quản lý kho hàng (Product, Category, Rating) và nhóm quy trình mua hàng (Cart, CartItem, Order, OrderItem, Payment, Shipment). Tất cả chia sẻ chung một cơ sở dữ liệu và một tiến trình triển khai."),
 
-Tiểu luận đã hoàn thành xuất sắc việc phân tích thiết kế, lập trình kiến trúc \textbf{E-commerce Microservices kết hợp nền tảng AI}. Dự án \textbf{kiemtra01} thỏa mãn toàn bộ tiêu chí của phương pháp luận \textbf{Domain Driven Design (DDD)}, với sơ đồ Class Diagram chi tiết, \textbf{Polyglot Persistence} linh hoạt dựa trên đặc điểm dữ liệu (MySQL cho giao dịch, PostgreSQL và Neo4j cho Machine Learning).
+  heading3("1.1.4. Nhược điểm chi tiết"),
+  boldBullet("Khó mở rộng và lãng phí tài nguyên", "Phải scale toàn bộ ứng dụng thay vì từng chức năng cụ thể, gây lãng phí tài nguyên cho các module ít được sử dụng."),
+  boldBullet("Mức độ phụ thuộc cao (Tight Coupling)", "Lỗi ở một module nhỏ như Cart có thể gây treo toàn bộ tiến trình hệ thống."),
+  boldBullet("Triển khai rủi ro và chậm chạp", "Một thay đổi nhỏ cũng yêu cầu build và deploy lại toàn bộ dự án; thời gian CI/CD và kiểm thử tăng đáng kể."),
+  boldBullet("Kém linh hoạt về công nghệ", "Toàn bộ hệ thống bị ràng buộc vào một framework/ngôn ngữ duy nhất — ví dụ chỉ dùng Django/Python."),
+  boldBullet("Khó làm việc nhóm quy mô lớn", "Nhiều nhóm phát triển chia sẻ chung một codebase dễ gây xung đột (merge conflicts) và cản trở tiến độ."),
+  spacer(),
+  para("Trong domain dược phẩm, rủi ro còn rõ ràng hơn: lỗi tư vấn AI hoặc lỗi cập nhật knowledge base không nên làm ảnh hưởng chức năng mua hàng. Monolithic cũng khó scale riêng phần AI khi số lượt chat tăng, khó scale riêng Product Service khi số lượt tìm kiếm tăng và dễ phát sinh tranh chấp schema khi nhiều nhóm cùng sửa database."),
 
-Hệ thống AI ứng dụng mạng \textbf{BiLSTM} tiên tiến mang lại độ chính xác 88.5\%, kết hợp nền tảng \textbf{Graph RAG} cho phép chatbot trò chuyện linh hoạt tự nhiên, hỗ trợ bán hàng hiệu suất cao. Dự án đóng gói chuẩn hóa \textbf{Docker Compose}, sẵn sàng cho quy trình CI/CD và định tuyến tải trên nền Kubernetes trong môi trường Enterprise Production. 
+  heading3("1.1.5. Khi nào nên dùng Monolithic"),
+  boldBullet("Dự án quy mô nhỏ hoặc trung bình", "Phù hợp khi hệ thống chưa có quá nhiều chức năng hoặc người dùng."),
+  boldBullet("Phát triển MVP", "Giúp xây dựng sản phẩm mẫu nhanh để kiểm chứng ý tưởng."),
+  boldBullet("Nhóm phát triển nhỏ", "Dễ quản lý codebase và phối hợp hơn so với nhiều service độc lập."),
+  boldBullet("Nghiệp vụ chưa phức tạp", "Không cần thiết phải phân tách thành nhiều service khi logic còn đơn giản."),
+  spacer(),
+  para("Đối với bài toán môn học cần thể hiện phân rã service, DDD, AI, deploy và demo nhiều thành phần, monolithic chỉ được dùng làm điểm xuất phát để giải thích lý do chuyển sang microservices."),
 
-%==========================================================================
-\end{document}
+  // 1.2
+  heading2("1.2. Microservices Architecture"),
+  heading3("1.2.1. Khái niệm"),
+  para("Microservices Architecture (kiến trúc vi dịch vụ) là phong cách thiết kế phần mềm trong đó hệ thống được chia thành nhiều dịch vụ nhỏ (services) hoạt động độc lập. Mỗi service chịu trách nhiệm cho một business domain riêng biệt và có thể được phát triển, triển khai cũng như mở rộng độc lập với các service khác."),
+  para("Khác với kiến trúc Monolithic, các thành phần trong Microservices không chạy chung trong một tiến trình mà giao tiếp với nhau qua mạng bằng các giao thức như HTTP/REST, gRPC hoặc Message Broker (RabbitMQ, Kafka). Mỗi microservice thường sở hữu cơ sở dữ liệu riêng (database-per-service pattern), giúp giảm sự phụ thuộc giữa các module và cho phép từng service sử dụng công nghệ, ngôn ngữ lập trình hoặc database phù hợp nhất với yêu cầu nghiệp vụ."),
+  para("Trong hệ Pharma E-Commerce: Product Service quản lý danh mục và tồn kho, User Service quản lý tài khoản và JWT, Cart Service quản lý giỏ hàng, Order Service điều phối checkout, Payment Service xử lý thanh toán, Shipping Service xử lý giao hàng, còn AI Service phục vụ tư vấn và gợi ý."),
+
+  heading3("1.2.2. Đặc điểm"),
+  boldBullet("Phân tách theo Domain", "Hệ thống chia thành các service độc lập, mỗi service đảm nhiệm một nghiệp vụ riêng biệt."),
+  boldBullet("Database-per-service", "Mỗi service sở hữu database riêng — service khác không được truy cập trực tiếp dữ liệu bên ngoài domain của mình."),
+  boldBullet("Giao tiếp qua API", "Các service trao đổi dữ liệu thông qua REST API hoặc message broker, không dùng lời gọi hàm nội bộ."),
+  boldBullet("Deploy độc lập", "Mỗi service có lifecycle riêng và có thể được cập nhật, deploy mà không ảnh hưởng đến các service còn lại."),
+  boldBullet("Scale độc lập", "Có thể tăng tài nguyên cho đúng service đang chịu tải cao mà không cần scale toàn hệ thống."),
+
+  heading3("1.2.3. So sánh Monolithic vs Microservices"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2200, 3413, 3413],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Tiêu chí", 2200), tableHeaderCell("Monolithic", 3413), tableHeaderCell("Microservices", 3413)] }),
+      new TableRow({ children: [tableCell("Đóng gói", 2200, PTC.gray), tableCell("Một ứng dụng lớn, chung codebase", 3413), tableCell("Nhiều service độc lập theo domain", 3413)] }),
+      new TableRow({ children: [tableCell("Database", 2200, PTC.gray), tableCell("Thường dùng chung database", 3413), tableCell("Database per service", 3413)] }),
+      new TableRow({ children: [tableCell("Deploy", 2200, PTC.gray), tableCell("Deploy toàn bộ hệ thống", 3413), tableCell("Deploy từng service khi thay đổi", 3413)] }),
+      new TableRow({ children: [tableCell("Mở rộng", 2200, PTC.gray), tableCell("Scale cả ứng dụng", 3413), tableCell("Scale riêng service tải cao", 3413)] }),
+      new TableRow({ children: [tableCell("Rủi ro", 2200, PTC.gray), tableCell("Lỗi một module dễ ảnh hưởng toàn hệ thống", 3413), tableCell("Cô lập lỗi tốt hơn, cần quan sát và retry", 3413)] }),
+      new TableRow({ children: [tableCell("Phù hợp", 2200, PTC.gray), tableCell("Ứng dụng nhỏ, ít đội phát triển", 3413), tableCell("Hệ thống nhiều domain, cần mở rộng độc lập", 3413)] }),
+    ],
+  }),
+  para("Bảng 1.2. So sánh Monolithic và Microservices", { italics: true, size: 20 }),
+
+  heading3("1.2.4. Ưu điểm"),
+  boldBullet("Khả năng mở rộng linh hoạt", "Scale riêng lẻ các service có tải cao thay vì toàn bộ hệ thống, tối ưu tài nguyên đáng kể."),
+  boldBullet("Triển khai độc lập & CI/CD", "Mỗi service có thể được build, test và deploy độc lập, giảm rủi ro regression."),
+  boldBullet("Đa dạng công nghệ", "Mỗi service có thể dùng ngôn ngữ/framework phù hợp nhất. Ví dụ AI Service dùng TensorFlow/Keras trong khi Product/Order dùng Django/PostgreSQL."),
+  boldBullet("Fault isolation", "Lỗi ở một service không kéo sập toàn hệ thống — AI lỗi không làm mất chức năng checkout."),
+  boldBullet("Phát triển nhóm song song", "Nhiều team làm việc độc lập trên từng service mà không conflict code."),
+
+  heading3("1.2.5. Nhược điểm"),
+  boldBullet("Độ phức tạp vận hành", "Cần thiết lập DevOps mạnh, quản lý container (Docker, Kubernetes) và hệ thống giám sát tập trung."),
+  boldBullet("Nhất quán dữ liệu phân tán", "Vì dữ liệu phân tán ở nhiều database, ACID transaction truyền thống không khả thi — phải xử lý Saga pattern hoặc eventual consistency."),
+  boldBullet("Network overhead", "Giao tiếp REST/gRPC gây trễ, tốn chi phí parse dữ liệu so với gọi hàm nội bộ trong monolithic."),
+  boldBullet("Khó debug & tracing", "Việc truy vết lỗi khi request đi qua chuỗi nhiều service khác nhau là thách thức lớn, cần distributed tracing."),
+  boldBullet("Overkill cho dự án nhỏ", "Chuyển đổi khi quy mô còn nhỏ sẽ gây tốn kém thời gian và chi phí không cần thiết."),
+
+  heading3("1.2.6. Nguyên tắc thiết kế"),
+  boldBullet("Single Responsibility Principle", "Mỗi service chỉ đảm nhiệm một nhóm chức năng nghiệp vụ cụ thể và có một lý do duy nhất để thay đổi."),
+  boldBullet("Database per service", "Mỗi service sở hữu dữ liệu của mình; service khác không truy cập trực tiếp database của service khác."),
+  boldBullet("API contract ổn định", "Giao tiếp giữa services thông qua API contract rõ ràng, có versioning khi cần thay đổi."),
+  boldBullet("Authentication tập trung", "JWT được validate tại Gateway; identity được forward xuống service phía sau qua header."),
+  boldBullet("Idempotency", "Các thao tác nhạy cảm như checkout nên thiết kế idempotent để tránh xử lý trùng lặp khi retry."),
+
+  heading3("1.2.7. BigTech sử dụng Microservices"),
+  para("Việc chuyển đổi từ Monolithic sang Microservices không chỉ là xu hướng mà là sự thay đổi tất yếu của các tập đoàn lớn để đáp ứng quy mô người dùng khổng lồ."),
+  para("Amazon là điển hình đi tiên phong với chỉ thị \"API Mandate\" của Jeff Bezos năm 2002: tất cả các nhóm phải giao tiếp thông qua API, không truy cập trực tiếp vào DB của nhóm khác. Amazon áp dụng mô hình \"Two-Pizza Team\" — mỗi nhóm phải đủ nhỏ để ăn no với 2 cái pizza và hoàn toàn làm chủ service của mình. Việc xây dựng hạ tầng cho microservices đã dẫn đến sự ra đời của AWS (SQS, S3, EC2). Hiện nay Amazon sử dụng kiến trúc Cell-based để tăng cường khả năng cô lập lỗi ở quy mô hàng chục nghìn services."),
+  para("Netflix chuyển đổi từ 2009 sau sự cố database, tách hệ thống thành các dịch vụ độc lập, dẫn đến sự ra đời bộ công cụ Spring Cloud Netflix. Uber ban đầu là monolithic tại San Francisco, không tải nổi khi mở rộng toàn cầu; việc tách thành các dịch vụ payment, notification, location tracking giúp scale dễ dàng hơn."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1600, 2500, 2500, 2426],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Tổ chức", 1600), tableHeaderCell("Giai đoạn ban đầu", 2500), tableHeaderCell("Động lực chuyển đổi", 2500), tableHeaderCell("Bài học áp dụng", 2426)] }),
+      new TableRow({ children: [tableCell("Netflix", 1600, PTC.gray), tableCell("Streaming tăng tải nhanh", 2500), tableCell("Scale, fault isolation, cloud deployment", 2500), tableCell("AI/Product service scale riêng khi tải tư vấn tăng", 2426)] }),
+      new TableRow({ children: [tableCell("Amazon", 1600, PTC.gray), tableCell("Retail platform lớn, nhiều nhóm phát triển", 2500), tableCell("API-first, service ownership, release độc lập", 2500), tableCell("Mỗi service có owner và API contract", 2426)] }),
+      new TableRow({ children: [tableCell("Uber", 1600, PTC.gray), tableCell("Tăng trưởng theo khu vực/dịch vụ", 2500), tableCell("Tách năng lực nghiệp vụ, vận hành độc lập", 2500), tableCell("Order/Shipping/Payment nên tách để dễ mở rộng", 2426)] }),
+      new TableRow({ children: [tableCell("Shopify", 1600, PTC.gray), tableCell("Thương mại điện tử nhiều merchant", 2500), tableCell("Module hóa domain, đảm bảo độ tin cậy", 2500), tableCell("Catalog/cart/order cần rõ ranh giới dữ liệu", 2426)] }),
+    ],
+  }),
+  para("Bảng 1.3. Tóm tắt BigTech sử dụng Microservices", { italics: true, size: 20 }),
+
+  // 1.3
+  heading2("1.3. Domain Driven Design (DDD)"),
+  heading3("1.3.1. Mục tiêu"),
+  para("Domain Driven Design (DDD) là phương pháp thiết kế phần mềm tập trung vào việc mô hình hóa hệ thống dựa trên nghiệp vụ thực tế (business domain). Thay vì ưu tiên cấu trúc kỹ thuật, DDD hướng tới việc xây dựng hệ thống phản ánh đúng quy trình hoạt động của doanh nghiệp và tạo ra ngôn ngữ chung (Ubiquitous Language) giữa lập trình viên và chuyên gia domain."),
+  para("DDD đặc biệt phù hợp với kiến trúc Microservices vì giúp xác định ranh giới service dựa trên business domain thay vì tầng kỹ thuật. Với đề tài này, domain không chỉ là e-commerce thông thường mà còn có đặc thù pharmacy: thuốc kê đơn, chống chỉ định, triệu chứng, tồn kho và tư vấn an toàn."),
+
+  heading3("1.3.2. Các khái niệm cốt lõi"),
+  para("Entity là đối tượng nghiệp vụ có định danh riêng (ID) và tồn tại xuyên suốt vòng đời hệ thống. Thuộc tính của entity có thể thay đổi, nhưng định danh không thay đổi. Khi so sánh hai entity, hệ thống ưu tiên so sánh ID thay vì toàn bộ giá trị thuộc tính. Trong hệ Pharma E-Commerce, User, Product, Order và Shipment đều là Entity."),
+  para("Value Object là đối tượng không có định danh riêng, được so sánh dựa trên toàn bộ giá trị của nó. Value Object thường được dùng để mô tả một cụm dữ liệu nhỏ có ý nghĩa nghiệp vụ nhưng không cần quản lý vòng đời độc lập. Trong hệ Pharma E-Commerce: ShippingAddress, Money, PhoneNumber và DosageInstruction có thể được xem là Value Object."),
+  para("Aggregate là cụm các Entity và Value Object liên quan chặt chẽ, được quản lý như một đơn vị nhất quán. Mỗi Aggregate có một Aggregate Root, và bên ngoài chỉ nên thao tác thông qua root để bảo vệ các invariant của nghiệp vụ. Order là Aggregate Root, OrderItem là thành phần bên trong aggregate của Order."),
+  para("Bounded Context là ranh giới trong đó một mô hình nghiệp vụ và ngôn ngữ nghiệp vụ có ý nghĩa nhất quán. Cùng một từ có thể mang ý nghĩa khác nhau trong các context khác nhau. Catalog Context nói về SKU, stock, category; Ordering Context nói về order, item snapshot, status; AI Consultation Context quan tâm behavior sequence, symptom, contraindication và safety notice."),
+  para("Repository là lớp trừu tượng hóa việc lưu/truy xuất aggregate. Domain Service chứa logic nghiệp vụ không tự nhiên thuộc về một entity cụ thể — ví dụ StockReservationService hoặc AIOrchestrator đều là domain service vì phối hợp nhiều entity/value object."),
+
+  heading3("1.3.3. Context Map"),
+  para("Context Map là sơ đồ mô tả mối quan hệ giữa các bounded context trong hệ thống. Một số mô hình quan hệ phổ biến:"),
+  boldBullet("Shared Kernel", "Hai bounded context chia sẻ một phần model hoặc thư viện chung. Ví dụ User Context và Order Context cùng sử dụng model Address."),
+  boldBullet("Customer-Supplier", "Một bounded context cung cấp dữ liệu/dịch vụ cho context khác thông qua API. Payment Context sử dụng dữ liệu từ Order Context; Supplier chịu trách nhiệm duy trì API ổn định."),
+  boldBullet("Conformist", "Context downstream phải tuân theo model của upstream mà không có quyền thay đổi."),
+  boldBullet("Anti-Corruption Layer (ACL)", "Lớp dịch ngữ nghĩa giữa các context không tương thích, ngăn chặn rò rỉ domain model."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2000, 4000, 3026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Bounded Context", 2000), tableHeaderCell("Nhiệm vụ chính", 4000), tableHeaderCell("Service tương ứng", 3026)] }),
+      new TableRow({ children: [tableCell("Catalog", 2000, PTC.gray), tableCell("Sản phẩm, danh mục, tồn kho, thuốc kê đơn", 4000), tableCell("Product Service", 3026)] }),
+      new TableRow({ children: [tableCell("Identity", 2000, PTC.gray), tableCell("Đăng ký, đăng nhập, phát hành JWT", 4000), tableCell("User Service", 3026)] }),
+      new TableRow({ children: [tableCell("Basket", 2000, PTC.gray), tableCell("Giỏ hàng và dòng sản phẩm", 4000), tableCell("Cart Service", 3026)] }),
+      new TableRow({ children: [tableCell("Ordering", 2000, PTC.gray), tableCell("Checkout, đơn hàng, snapshot giá", 4000), tableCell("Order Service", 3026)] }),
+      new TableRow({ children: [tableCell("Payment", 2000, PTC.gray), tableCell("Phương thức và trạng thái thanh toán", 4000), tableCell("Payment Service", 3026)] }),
+      new TableRow({ children: [tableCell("Fulfillment", 2000, PTC.gray), tableCell("Địa chỉ, vận chuyển, trạng thái giao hàng", 4000), tableCell("Shipping Service", 3026)] }),
+      new TableRow({ children: [tableCell("AI Consultation", 2000, PTC.gray), tableCell("DL, KG, RAG, chatbot, gợi ý sản phẩm", 4000), tableCell("AI Service", 3026)] }),
+    ],
+  }),
+  para("Bảng 1.4. Mapping bounded context sang service", { italics: true, size: 20 }),
+
+  heading3("1.3.4. DDD trong Microservices"),
+  para("DDD giúp microservices không bị tách hình thức. Nếu chỉ tách theo bảng database hoặc tầng kỹ thuật, các service vẫn phụ thuộc chéo. Khi tách theo bounded context, Product Service chịu trách nhiệm catalog/stock, Order Service chịu trách nhiệm order snapshot, còn AI Service chịu trách nhiệm tri thức tư vấn và không ghi trực tiếp vào database của order/product."),
+  para("Service không truy cập trực tiếp database của service khác; giao tiếp qua HTTP API hoặc message/event. Vì vậy thiết kế phải chú ý contract API, idempotency, phân quyền ở gateway, transaction phân tán và dữ liệu nhất quán cuối cùng."),
+
+  // 1.4
+  heading2("1.4. Case Study: Healthcare (Luyện Decomposition)"),
+  heading3("1.4.1. Mô tả bài toán"),
+  para("Để luyện tập kỹ năng phân rã hệ thống, chúng ta xem xét một bài toán trong lĩnh vực y tế. Hệ thống Healthcare được xây dựng nhằm hỗ trợ quản lý và vận hành các hoạt động trong bệnh viện hoặc phòng khám: quản lý thông tin bệnh nhân, bác sĩ, lịch khám, hồ sơ bệnh án, thanh toán và thuốc điều trị. Domain này phù hợp để minh họa vì dữ liệu và quy trình có nhiều ràng buộc tương tự Pharma E-Commerce."),
+
+  heading3("1.4.2. Bước 1 – Xác định Domain"),
+  boldBullet("Patient Management Domain", "Quản lý thông tin và lịch sử cơ bản của bệnh nhân."),
+  boldBullet("Doctor Management Domain", "Quản lý thông tin bác sĩ và chuyên khoa."),
+  boldBullet("Appointment Domain", "Quản lý lịch hẹn khám bệnh."),
+  boldBullet("Medical Record Domain", "Quản lý hồ sơ bệnh án và lịch sử khám chữa bệnh."),
+  boldBullet("Prescription Domain", "Quản lý đơn thuốc và thuốc điều trị."),
+  boldBullet("Billing Domain", "Quản lý thanh toán và hóa đơn."),
+
+  heading3("1.4.3. Bước 2 – Xác định Bounded Context"),
+  boldBullet("Patient Context", "Lưu trữ hồ sơ cá nhân, lịch sử cơ bản và chia sẻ thông tin qua API."),
+  boldBullet("Doctor Context", "Quản lý chuyên khoa và lịch làm việc của bác sĩ."),
+  boldBullet("Appointment Context", "Điều phối lịch hẹn giữa bệnh nhân và bác sĩ, phụ thuộc vào Patient và Doctor Context qua API."),
+  boldBullet("Medical Record Context", "Lưu kết quả khám bệnh và chẩn đoán, nhận dữ liệu từ Appointment Context."),
+  boldBullet("Prescription Context", "Tạo đơn thuốc dựa trên thông tin từ Medical Record Context."),
+
+  heading3("1.4.4. Bước 3 – Phân rã thành Microservices"),
+  para("Sau khi xác định bounded context, mỗi context được triển khai thành một microservice tương ứng: patient-service, doctor-service, appointment-service, medical-record-service, prescription-service, billing-service và notification-service. Mỗi service quản lý mã nguồn và cơ sở dữ liệu riêng biệt."),
+
+  heading3("1.4.5. Bước 4 – Xác định quan hệ"),
+  bullet("Appointment Service cần lấy thông tin bệnh nhân từ Patient Service và lịch làm việc từ Doctor Service trước khi tạo lịch khám."),
+  bullet("Medical Record Service sử dụng dữ liệu từ Appointment Service để lưu kết quả khám bệnh."),
+  bullet("Prescription Service dựa trên thông tin bệnh án từ Medical Record Service để tạo đơn thuốc."),
+  bullet("Billing Service nhận dữ liệu từ Appointment Service để tạo hóa đơn thanh toán."),
+  bullet("Notification Service gửi email hoặc SMS nhắc lịch khám và xác nhận thanh toán."),
+  spacer(),
+  para("Quan hệ giữa service được thiết kế qua API: Gateway định tuyến request; các service không truy cập trực tiếp database của nhau mà gọi qua API contract."),
+
+  heading3("1.4.6. Ví dụ API"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [3200, 2300, 3526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("API", 3200), tableHeaderCell("Service", 2300), tableHeaderCell("Ý nghĩa", 3526)] }),
+      new TableRow({ children: [tableCell("POST /api/v1/auth/login", 3200, PTC.gray), tableCell("User Service", 2300), tableCell("Đăng nhập và nhận JWT", 3526)] }),
+      new TableRow({ children: [tableCell("GET /api/v1/products", 3200, PTC.gray), tableCell("Product Service", 2300), tableCell("Xem danh mục sản phẩm", 3526)] }),
+      new TableRow({ children: [tableCell("POST /api/v1/cart/items", 3200, PTC.gray), tableCell("Cart Service", 2300), tableCell("Thêm sản phẩm vào giỏ", 3526)] }),
+      new TableRow({ children: [tableCell("POST /api/v1/orders/checkout/initiate", 3200, PTC.gray), tableCell("Order Service", 2300), tableCell("Tạo checkout session từ cart snapshot", 3526)] }),
+      new TableRow({ children: [tableCell("POST /api/v1/orders/checkout/placeorder", 3200, PTC.gray), tableCell("Order Service", 2300), tableCell("Xác nhận đơn hàng và reserve stock", 3526)] }),
+      new TableRow({ children: [tableCell("POST /api/v1/ai/assistant/query", 3200, PTC.gray), tableCell("AI Service", 2300), tableCell("Tư vấn sản phẩm có nguồn và cảnh báo", 3526)] }),
+    ],
+  }),
+  para("Bảng 1.5. Ví dụ API sau khi phân rã Healthcare/Pharmacy", { italics: true, size: 20 }),
+
+  // 1.5
+  heading2("1.5. Kết luận"),
+  para("Việc lựa chọn giữa kiến trúc Monolithic và Microservices phụ thuộc hoàn toàn vào quy mô, yêu cầu nghiệp vụ và nguồn lực của dự án. Monolithic là lựa chọn tối ưu cho hệ thống nhỏ cần triển khai nhanh. Microservices là giải pháp tất yếu cho hệ thống lớn, phức tạp, cần mở rộng linh hoạt và triển khai độc lập."),
+  para("Sự kết hợp giữa Microservices và Domain Driven Design giúp hệ thống phản ánh đúng nghiệp vụ, tránh tách service hình thức và đảm bảo các chương sau có thể đi từ yêu cầu, class diagram, data model đến code triển khai nhất quán."),
+];
+
+// ─── CHAPTER 2 ─────────────────────────────────────────────────────────────
+const chap2 = [
+  heading1("CHƯƠNG 2. PHÁT TRIỂN HỆ E-COMMERCE MICROSERVICES"),
+  heading2("2.1. Xác định yêu cầu"),
+  para("Hệ thống E-Commerce được xây dựng nhằm phục vụ người dùng mua sản phẩm dược phẩm trực tuyến và nhận tư vấn an toàn. Các nhóm tác nhân chính gồm: khách hàng (Customer), nhân viên (Staff), quản trị viên (Admin), hệ thống thanh toán và AI Service."),
+
+  heading3("2.1.1. Functional Requirements"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [900, 5526, 2600],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Mã", 900), tableHeaderCell("Yêu cầu chức năng", 5526), tableHeaderCell("Service phụ trách", 2600)] }),
+      new TableRow({ children: [tableCell("FR01", 900, PTC.gray), tableCell("Đăng ký, đăng nhập, nhận JWT và xem hồ sơ", 5526), tableCell("User Service + API Gateway", 2600)] }),
+      new TableRow({ children: [tableCell("FR02", 900, PTC.gray), tableCell("Xem/tìm kiếm sản phẩm, lọc theo danh mục và tồn kho", 5526), tableCell("Product Service", 2600)] }),
+      new TableRow({ children: [tableCell("FR03", 900, PTC.gray), tableCell("Xem chi tiết sản phẩm và nhận gợi ý liên quan", 5526), tableCell("Product + AI Service", 2600)] }),
+      new TableRow({ children: [tableCell("FR04", 900, PTC.gray), tableCell("Thêm/cập nhật/xóa sản phẩm trong giỏ hàng", 5526), tableCell("Cart Service", 2600)] }),
+      new TableRow({ children: [tableCell("FR05", 900, PTC.gray), tableCell("Checkout tạo đơn hàng và trừ tồn kho", 5526), tableCell("Order + Product Service", 2600)] }),
+      new TableRow({ children: [tableCell("FR06", 900, PTC.gray), tableCell("Thanh toán và lưu trạng thái thanh toán", 5526), tableCell("Payment Service", 2600)] }),
+      new TableRow({ children: [tableCell("FR07", 900, PTC.gray), tableCell("Tạo thông tin giao hàng và theo dõi trạng thái", 5526), tableCell("Shipping Service", 2600)] }),
+      new TableRow({ children: [tableCell("FR08", 900, PTC.gray), tableCell("Chat tư vấn thuốc/sản phẩm có nguồn và cảnh báo an toàn", 5526), tableCell("AI Service", 2600)] }),
+    ],
+  }),
+  para("Bảng 2.1. Bảng yêu cầu chức năng theo service", { italics: true, size: 20 }),
+
+  heading3("2.1.2. Non-functional Requirements"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1000, 2500, 5526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Mã", 1000), tableHeaderCell("Yêu cầu phi chức năng", 2500), tableHeaderCell("Cách đáp ứng", 5526)] }),
+      new TableRow({ children: [tableCell("NFR01", 1000, PTC.gray), tableCell("Bảo mật", 2500), tableCell("JWT chuẩn HS256, gateway validate token và forward identity", 5526)] }),
+      new TableRow({ children: [tableCell("NFR02", 1000, PTC.gray), tableCell("Khả dụng", 2500), tableCell("Mỗi service chạy container riêng, lỗi AI không làm dừng checkout", 5526)] }),
+      new TableRow({ children: [tableCell("NFR03", 1000, PTC.gray), tableCell("Nhất quán tồn kho", 2500), tableCell("Order Service gọi Product Service reserve-stock trước khi xác nhận đơn", 5526)] }),
+      new TableRow({ children: [tableCell("NFR04", 1000, PTC.gray), tableCell("Khả năng mở rộng", 2500), tableCell("Scale riêng Product/AI nếu tải tìm kiếm hoặc chat tăng", 5526)] }),
+      new TableRow({ children: [tableCell("NFR05", 1000, PTC.gray), tableCell("An toàn tư vấn", 2500), tableCell("RAG có nguồn, Knowledge Graph cảnh báo chống chỉ định, safety notice", 5526)] }),
+    ],
+  }),
+  para("Bảng 2.2. Bảng yêu cầu phi chức năng", { italics: true, size: 20 }),
+  spacer(),
+  para("Yêu cầu phi chức năng quan trọng nhất trong hệ pharma là an toàn và độ tin cậy. AI Service không được thay thế bác sĩ/dược sĩ; mọi câu trả lời cần có nguồn, cảnh báo và fallback. Checkout phải bảo toàn tồn kho, nên Order Service chỉ xác nhận đơn sau khi Product Service reserve-stock thành công."),
+
+  heading2("2.2. Phân rã hệ thống theo DDD"),
+  para("Hệ thống E-Commerce được phân rã thành các đơn vị nghiệp vụ độc lập thông qua hai bước chính: xác định các vùng ngữ cảnh (Bounded Context) và ánh xạ chúng sang kiến trúc Microservices. Mỗi service có database riêng để tránh coupling ở mức dữ liệu. API Gateway là điểm vào thống nhất cho frontend, chịu trách nhiệm định tuyến request, kiểm tra JWT và forward identity."),
+
+  heading3("2.2.1. Bounded Context và Service tương ứng"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2200, 2300, 800, 3726],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Service", 2200), tableHeaderCell("Database", 2300), tableHeaderCell("Port", 800), tableHeaderCell("Vai trò", 3726)] }),
+      new TableRow({ children: [tableCell("User Service", 2200, PTC.gray), tableCell("user_db", 2300), tableCell("8001", 800), tableCell("Identity, JWT, profile", 3726)] }),
+      new TableRow({ children: [tableCell("Product Service", 2200, PTC.gray), tableCell("product_db", 2300), tableCell("8003", 800), tableCell("Catalog, stock, reserve stock", 3726)] }),
+      new TableRow({ children: [tableCell("Cart Service", 2200, PTC.gray), tableCell("cart_db", 2300), tableCell("8004", 800), tableCell("Cart và cart item", 3726)] }),
+      new TableRow({ children: [tableCell("Order Service", 2200, PTC.gray), tableCell("order_db", 2300), tableCell("8005", 800), tableCell("Checkout, order, order item snapshot", 3726)] }),
+      new TableRow({ children: [tableCell("Payment Service", 2200, PTC.gray), tableCell("payment_db", 2300), tableCell("8006", 800), tableCell("Payment method/status", 3726)] }),
+      new TableRow({ children: [tableCell("Shipping Service", 2200, PTC.gray), tableCell("shipping_db", 2300), tableCell("8007", 800), tableCell("Shipment/address/status", 3726)] }),
+      new TableRow({ children: [tableCell("AI Service", 2200, PTC.gray), tableCell("ai_db + KG/KB", 2300), tableCell("8009", 800), tableCell("DL recommendation, KG context, RAG chatbot", 3726)] }),
+    ],
+  }),
+  para("Bảng 2.3. Danh sách service và dữ liệu sở hữu", { italics: true, size: 20 }),
+
+  heading3("2.2.2. Nguyên tắc phân rã"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [3000, 6026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Nguyên tắc", 3000), tableHeaderCell("Áp dụng trong project", 6026)] }),
+      new TableRow({ children: [tableCell("Database per service", 3000, PTC.gray), tableCell("Mỗi service dùng database riêng trong PostgreSQL", 6026)] }),
+      new TableRow({ children: [tableCell("API contract", 3000, PTC.gray), tableCell("Gateway route request đến service qua endpoint ổn định", 6026)] }),
+      new TableRow({ children: [tableCell("Loose coupling", 3000, PTC.gray), tableCell("Service khác chỉ giữ ID/snapshot, không join database xuyên service", 6026)] }),
+      new TableRow({ children: [tableCell("Failure isolation", 3000, PTC.gray), tableCell("AI lỗi không làm mất chức năng mua hàng", 6026)] }),
+      new TableRow({ children: [tableCell("Security at edge", 3000, PTC.gray), tableCell("Gateway validate JWT trước khi forward identity", 6026)] }),
+    ],
+  }),
+  para("Bảng 2.4. Nguyên tắc phân rã DDD sang microservices", { italics: true, size: 20 }),
+
+  heading2("2.3. Thiết kế Product Service (Django)"),
+  para("Product Service là dịch vụ trung tâm chịu trách nhiệm quản lý toàn bộ dữ liệu về sản phẩm, danh mục, thương hiệu và các thuộc tính liên quan. Service được thiết kế như một bounded context độc lập với database riêng, API riêng và Django model riêng."),
+
+  heading3("2.3.1. Phân loại sản phẩm"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 3000, 4226],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Nhóm sản phẩm", 1800), tableHeaderCell("Ví dụ", 3000), tableHeaderCell("Lưu ý nghiệp vụ", 4226)] }),
+      new TableRow({ children: [tableCell("pain_fever", 1800, PTC.gray), tableCell("Paracetamol, Ibuprofen", 3000), tableCell("Cần cảnh báo liều dùng, chống chỉ định", 4226)] }),
+      new TableRow({ children: [tableCell("cough_cold", 1800, PTC.gray), tableCell("Siro ho, viên ngậm", 3000), tableCell("Phân biệt ho nhẹ, ho kéo dài, sốt cao hoặc khó thở", 4226)] }),
+      new TableRow({ children: [tableCell("vitamin", 1800, PTC.gray), tableCell("Vitamin C, Zinc, Multivitamin", 3000), tableCell("Gợi ý tăng đề kháng nhưng tránh claim điều trị bệnh", 4226)] }),
+      new TableRow({ children: [tableCell("digestive", 1800, PTC.gray), tableCell("Men tiêu hóa, bù nước", 3000), tableCell("Cảnh báo khi tiêu chảy kéo dài hoặc mất nước", 4226)] }),
+      new TableRow({ children: [tableCell("prescription", 1800, PTC.gray), tableCell("Thuốc kê đơn", 3000), tableCell("Chỉ hiển thị cảnh báo cần đơn/ý kiến bác sĩ", 4226)] }),
+    ],
+  }),
+  para("Bảng 2.5. Phân loại sản phẩm dược phẩm trong Product Service", { italics: true, size: 20 }),
+
+  heading3("2.3.2. Model tổng quát"),
+  para("Model chính gồm Category, Brand, Tag, Product, Image và ProductTag. Product lưu sku, name, price, stock_quantity, category và attributes JSON cho thông tin dược như active_ingredients, symptoms, contraindications, warnings và requires_prescription."),
+  codeBlock("class Product(models.Model):"),
+  codeBlock("    id = models.UUIDField(primary_key=True, default=uuid.uuid4)"),
+  codeBlock("    sku = models.CharField(max_length=64, unique=True)"),
+  codeBlock("    name = models.CharField(max_length=255)"),
+  codeBlock("    category = models.ForeignKey(Category, on_delete=models.PROTECT)"),
+  codeBlock("    price = models.DecimalField(max_digits=12, decimal_places=2)"),
+  codeBlock("    stock_quantity = models.IntegerField(default=0)"),
+  codeBlock("    attributes = models.JSONField(default=dict, blank=True)"),
+  codeBlock("    is_active = models.BooleanField(default=True)"),
+
+  heading3("2.3.3. Chi tiết theo domain"),
+  para("Điểm khác biệt so với e-commerce thông thường là sản phẩm có thông tin an toàn: thuốc kê đơn, chống chỉ định, triệu chứng liên quan, hoạt chất, hướng dẫn dùng và cảnh báo. Hệ thống sử dụng mô hình dữ liệu lai giữa quan hệ (SQL) và phi quan hệ (JSON) để tối ưu hóa tính linh hoạt. Một phần tri thức chuyên sâu được đưa sang AI Knowledge Graph để chatbot truy vấn."),
+
+  heading3("2.3.4. API"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 3226, 4000],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Method", 1800), tableHeaderCell("Endpoint", 3226), tableHeaderCell("Mô tả chức năng", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/products/", 3226), tableCell("Liệt kê sản phẩm (hỗ trợ lọc, tìm kiếm)", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/products/", 3226), tableCell("Tạo mới một sản phẩm", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/products/{id}/", 3226), tableCell("Xem thông tin chi tiết sản phẩm", 4000)] }),
+      new TableRow({ children: [tableCell("PUT", 1800, PTC.gray), tableCell("/products/{id}/", 3226), tableCell("Cập nhật thông tin sản phẩm", 4000)] }),
+      new TableRow({ children: [tableCell("PATCH", 1800, PTC.gray), tableCell("/products/{id}/stock/", 3226), tableCell("Cập nhật nhanh số lượng tồn kho", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/products/internal/reserve-stock/", 3226), tableCell("API nội bộ để Order Service trừ tồn kho khi checkout", 4000)] }),
+    ],
+  }),
+  para("Bảng 2.6. API của Product Service", { italics: true, size: 20 }),
+
+  heading2("2.4. Thiết kế User Service (Django)"),
+  para("User Service là dịch vụ nền tảng quản lý danh tính người dùng, hồ sơ cá nhân và thông tin địa chỉ giao hàng. Dịch vụ đảm bảo tính bảo mật và nhất quán của dữ liệu người dùng trên toàn hệ thống."),
+
+  heading3("2.4.1. Phân loại người dùng"),
+  boldBullet("Customer", "Mua hàng, xem sản phẩm, thêm giỏ hàng, checkout và xem đơn của mình."),
+  boldBullet("Staff", "Quản lý sản phẩm, đơn hàng và kiểm duyệt nội dung qua Staff Service."),
+  boldBullet("Admin", "Phân quyền RBAC, quản lý nhân viên và xem báo cáo."),
+
+  heading3("2.4.2. Model và JWT Claims"),
+  para("UserAccount model lưu email, password_hash, full_name, phone và trạng thái tài khoản. JWT không lưu trong database như session bắt buộc; token chứa các claim để Gateway validate."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2000, 7026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Claim JWT", 2000), tableHeaderCell("Ý nghĩa", 7026)] }),
+      new TableRow({ children: [tableCell("sub", 2000, PTC.gray), tableCell("ID người dùng, dùng làm customer_id khi gọi Cart/Order", 7026)] }),
+      new TableRow({ children: [tableCell("email", 2000, PTC.gray), tableCell("Định danh đăng nhập", 7026)] }),
+      new TableRow({ children: [tableCell("role", 2000, PTC.gray), tableCell("Phân biệt user/staff/admin", 7026)] }),
+      new TableRow({ children: [tableCell("token_type", 2000, PTC.gray), tableCell("Chỉ nhận access token cho API", 7026)] }),
+      new TableRow({ children: [tableCell("iss", 2000, PTC.gray), tableCell("Issuer để Gateway kiểm tra token do đúng User Service phát hành", 7026)] }),
+      new TableRow({ children: [tableCell("exp", 2000, PTC.gray), tableCell("Thời điểm hết hạn token", 7026)] }),
+    ],
+  }),
+  para("Bảng 2.7. Các claim chính trong JWT", { italics: true, size: 20 }),
+
+  heading3("2.4.3. Phân quyền (RBAC)"),
+  para("RBAC tách vai trò customer, staff, admin. Gateway forward identity và role để service phía sau quyết định quyền truy cập. Với khách hàng, quyền chính là xem sản phẩm, thao tác giỏ, checkout và xem đơn của mình. Staff có quyền quản lý sản phẩm và đơn hàng nhưng không tạo đơn hàng cá nhân."),
+
+  heading3("2.4.4. API"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 3226, 4000],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Method", 1800), tableHeaderCell("Endpoint", 3226), tableHeaderCell("Mô tả chức năng", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/auth/register/", 3226), tableCell("Đăng ký tài khoản mới", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/auth/login/", 3226), tableCell("Đăng nhập, nhận access_token JWT chuẩn HS256", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/users/me/", 3226), tableCell("Xem thông tin cá nhân (qua Gateway với Bearer token)", 4000)] }),
+      new TableRow({ children: [tableCell("PUT", 1800, PTC.gray), tableCell("/users/me/profile/", 3226), tableCell("Cập nhật hồ sơ cá nhân", 4000)] }),
+      new TableRow({ children: [tableCell("GET/POST", 1800, PTC.gray), tableCell("/users/me/addresses/", 3226), tableCell("Quản lý sổ địa chỉ giao hàng", 4000)] }),
+    ],
+  }),
+  para("Bảng 2.8. API của User Service", { italics: true, size: 20 }),
+
+  heading2("2.5. Thiết kế Cart Service"),
+  para("Cart Service chịu trách nhiệm quản lý giỏ hàng tạm thời của người dùng, cho phép thêm, xóa và cập nhật số lượng sản phẩm trước khi tiến hành đặt hàng."),
+
+  heading3("2.5.1. Model"),
+  para("Cart gắn với customer_id; CartItem lưu product_id, sku, quantity, unit_price và product_name snapshot. Service không join trực tiếp Product DB mà lưu dữ liệu đủ để hiển thị giỏ hàng mà không cần gọi lại Product Service mỗi lần render."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2500, 6526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Thành phần", 2500), tableHeaderCell("Mô tả", 6526)] }),
+      new TableRow({ children: [tableCell("Class chính", 2500, PTC.gray), tableCell("Cart, CartItem", 6526)] }),
+      new TableRow({ children: [tableCell("Data model", 2500, PTC.gray), tableCell("carts, cart_items, customer_id, product_id, sku, quantity, unit_price", 6526)] }),
+      new TableRow({ children: [tableCell("API tiêu biểu", 2500, PTC.gray), tableCell("GET cart, POST cart/items, PATCH/DELETE item, DELETE cart để clear sau order", 6526)] }),
+      new TableRow({ children: [tableCell("Ghi chú thiết kế", 2500, PTC.gray), tableCell("Service sở hữu dữ liệu riêng; service khác chỉ gọi qua API/Gateway", 6526)] }),
+    ],
+  }),
+  para("Bảng 2.9. Thiết kế và data model Cart Service", { italics: true, size: 20 }),
+
+  heading3("2.5.2. Logic"),
+  boldBullet("Quản lý giỏ hàng", "Tự động khởi tạo giỏ hàng khi người dùng thêm sản phẩm đầu tiên. Nếu sản phẩm đã tồn tại trong giỏ, cập nhật số lượng."),
+  boldBullet("Dọn dẹp giỏ hàng", "Sau khi checkout thành công, cart được clear để tránh đặt lại cùng sản phẩm."),
+  boldBullet("Phân chia trách nhiệm", "Cart Service không tự trừ tồn kho; trách nhiệm đó thuộc Order/Product flow. Cart không tự quyết định sản phẩm còn hàng — kiểm tra tồn kho cuối cùng diễn ra trong checkout để tránh race condition."),
+
+  heading3("2.5.3. API"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 3226, 4000],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Method", 1800), tableHeaderCell("Endpoint", 3226), tableHeaderCell("Mô tả chức năng", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/cart/", 3226), tableCell("Xem giỏ hàng hiện tại", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/cart/items/", 3226), tableCell("Thêm sản phẩm vào giỏ", 4000)] }),
+      new TableRow({ children: [tableCell("PATCH", 1800, PTC.gray), tableCell("/cart/items/{id}/", 3226), tableCell("Cập nhật số lượng item", 4000)] }),
+      new TableRow({ children: [tableCell("DELETE", 1800, PTC.gray), tableCell("/cart/items/{id}/", 3226), tableCell("Xóa item khỏi giỏ hàng", 4000)] }),
+      new TableRow({ children: [tableCell("DELETE", 1800, PTC.gray), tableCell("/cart/", 3226), tableCell("Clear toàn bộ giỏ hàng sau checkout", 4000)] }),
+    ],
+  }),
+  para("Bảng 2.10. API của Cart Service", { italics: true, size: 20 }),
+
+  heading2("2.6. Thiết kế Order Service"),
+  para("Order Service là dịch vụ quan trọng xử lý quy trình đặt hàng, tính toán tổng giá trị đơn hàng và quản lý vòng đời của đơn hàng từ khi khởi tạo đến khi hoàn tất."),
+
+  heading3("2.6.1. Model"),
+  para("Order lưu customer_id, order_number, status, total_amount, shipping_address snapshot và payment_method. OrderItem lưu product_id, sku, name, quantity, unit_price để đơn hàng không bị thay đổi khi product catalog đổi giá/tên. Trạng thái gồm: PENDING_PAYMENT → CONFIRMED → PROCESSING → SHIPPING → COMPLETED; có thể CANCEL_REQUESTED → CANCELLED → REFUNDED."),
+
+  heading3("2.6.2. Workflow Checkout"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [700, 4000, 4326],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Bước", 700), tableHeaderCell("Xử lý", 4000), tableHeaderCell("Nếu lỗi", 4326)] }),
+      new TableRow({ children: [tableCell("1", 700, PTC.gray), tableCell("Nhận request checkout từ Gateway", 4000), tableCell("Trả 400 nếu thiếu địa chỉ/thanh toán", 4326)] }),
+      new TableRow({ children: [tableCell("2", 700, PTC.gray), tableCell("Lấy snapshot item cần đặt từ Cart Service", 4000), tableCell("Trả lỗi nếu giỏ rỗng", 4326)] }),
+      new TableRow({ children: [tableCell("3", 700, PTC.gray), tableCell("Gọi Product Service reserve-stock", 4000), tableCell("Dừng workflow nếu hết hàng (409 Conflict)", 4326)] }),
+      new TableRow({ children: [tableCell("4", 700, PTC.gray), tableCell("Tạo Order và OrderItem trong transaction.atomic()", 4000), tableCell("Rollback transaction nếu tạo item lỗi", 4326)] }),
+      new TableRow({ children: [tableCell("5", 700, PTC.gray), tableCell("Trả order CONFIRMED cho frontend", 4000), tableCell("Frontend clear cart sau khi nhận thành công", 4326)] }),
+    ],
+  }),
+  para("Bảng 2.11. Workflow checkout trong Order Service", { italics: true, size: 20 }),
+  spacer(),
+  codeBlock("def place_order(request):"),
+  codeBlock("    checkout = get_checkout_snapshot(request)"),
+  codeBlock("    _reserve_stock(checkout.items_snapshot, request_id)"),
+  codeBlock("    order = Order.objects.create("),
+  codeBlock("        customer_id=customer_id, status='CONFIRMED')"),
+  codeBlock("    create_order_items(order, checkout.items_snapshot)"),
+  codeBlock("    return JsonResponse(order_payload(order), status=201)"),
+
+  heading2("2.7. Thiết kế Payment Service"),
+  para("Payment Service chịu trách nhiệm tích hợp các cổng thanh toán và quản lý các giao dịch tài chính của hệ thống. PaymentMethod mô tả phương thức COD hoặc online sandbox. PaymentTransaction lưu order_id, amount, provider, status và reference code."),
+
+  heading3("2.7.1. Trạng thái thanh toán"),
+  para("Trạng thái cơ bản gồm PENDING → AUTHORIZED → PAID → FAILED → REFUNDED. Với demo, COD có thể xác nhận ở mức order flow, còn online payment là hướng mở rộng."),
+
+  heading3("2.7.2. API"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 3226, 4000],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Method", 1800), tableHeaderCell("Endpoint", 3226), tableHeaderCell("Mô tả chức năng", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/payment-methods/", 3226), tableCell("Lấy danh sách phương thức thanh toán khả dụng", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/payments/", 3226), tableCell("Khởi tạo một giao dịch thanh toán mới", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/payments/{id}/", 3226), tableCell("Kiểm tra trạng thái của một giao dịch", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/payments/{id}/callback/", 3226), tableCell("Tiếp nhận phản hồi từ cổng thanh toán bên ngoài", 4000)] }),
+    ],
+  }),
+  para("Bảng 2.12. API của Payment Service", { italics: true, size: 20 }),
+
+  heading2("2.8. Thiết kế Shipping Service"),
+  para("Shipping Service quản lý việc giao hàng, theo dõi lộ trình và tích hợp với các đơn vị vận chuyển đối tác. Shipment lưu order_id, carrier, tracking_number, shipping_address snapshot và status. TrackingEvent lưu lịch sử trạng thái vận chuyển."),
+
+  heading3("2.8.1. Trạng thái vận chuyển"),
+  para("Trạng thái gồm CREATED → PICKED_UP → IN_TRANSIT → DELIVERED; có thể FAILED hoặc CANCELLED. Việc tách Shipping Service giúp sau này tích hợp carrier riêng mà không cần sửa Order Service."),
+
+  heading3("2.8.2. API"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 3226, 4000],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Method", 1800), tableHeaderCell("Endpoint", 3226), tableHeaderCell("Mô tả chức năng", 4000)] }),
+      new TableRow({ children: [tableCell("POST", 1800, PTC.gray), tableCell("/shipments/", 3226), tableCell("Tạo yêu cầu vận chuyển mới", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/shipments/{id}/", 3226), tableCell("Xem thông tin vận chuyển theo đơn hàng", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/shipments/track/", 3226), tableCell("Tra cứu lộ trình kiện hàng qua mã vận đơn", 4000)] }),
+      new TableRow({ children: [tableCell("GET", 1800, PTC.gray), tableCell("/carriers/", 3226), tableCell("Lấy danh sách đơn vị vận chuyển", 4000)] }),
+    ],
+  }),
+  para("Bảng 2.13. API của Shipping Service", { italics: true, size: 20 }),
+
+  heading2("2.9. Luồng hệ thống tổng thể"),
+  para("Hệ thống vận hành dựa trên sự phối hợp chặt chẽ giữa các dịch vụ thông qua API Gateway. Luồng mua hàng là luồng nghiệp vụ quan trọng nhất cần chứng minh hệ microservices phối hợp được."),
+  para("Người dùng đăng nhập nhận JWT, xem sản phẩm, thêm vào giỏ, tạo checkout session (Cart Service gọi Product Service kiểm tra stock và giá), sau đó place order (Order Service gọi Product Service reserve-stock bằng select_for_update() + transaction.atomic()), tạo Order/OrderItem, trả CONFIRMED, frontend clear cart và người dùng xem lại danh sách đơn hàng."),
+  para("Luồng tư vấn AI hoạt động độc lập: khi người dùng hỏi chatbot, AI Service tìm kiếm trong knowledge base bằng RAG, truy vấn Knowledge Graph để lấy ngữ cảnh an toàn, kết hợp gợi ý từ mô hình Deep Learning, và trả về answer kèm sources, suggested_products và safety_notice mà không can thiệp vào flow checkout."),
+
+  heading2("2.10. So sánh MySQL vs PostgreSQL"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [3000, 3013, 3013],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Tiêu chí", 3000), tableHeaderCell("MySQL", 3013), tableHeaderCell("PostgreSQL", 3013)] }),
+      new TableRow({ children: [tableCell("JSON/JSONB", 3000, PTC.gray), tableCell("Có hỗ trợ JSON", 3013), tableCell("JSONB mạnh, index tốt — phù hợp product attributes", 3013)] }),
+      new TableRow({ children: [tableCell("Transaction", 3000, PTC.gray), tableCell("Tốt (InnoDB)", 3013), tableCell("Tốt, giàu kiểu dữ liệu hơn", 3013)] }),
+      new TableRow({ children: [tableCell("Mở rộng", 3000, PTC.gray), tableCell("Phổ biến, dễ dùng", 3013), tableCell("Mạnh cho dữ liệu phức tạp", 3013)] }),
+      new TableRow({ children: [tableCell("Lựa chọn V04", 3000, PTC.gray), tableCell("User, Staff, Payment, Shipping", 3013), tableCell("Product, Cart, Order, AI DB — chọn PostgreSQL", 3013)] }),
+    ],
+  }),
+  para("Bảng 2.14. So sánh MySQL và PostgreSQL", { italics: true, size: 20 }),
+
+  heading2("2.11. Kết luận"),
+  para("Chương 2 đã chuyển yêu cầu nghiệp vụ thành ranh giới service, class diagram, data model và luồng xử lý. Mỗi service trong hệ thống có database riêng, API contract rõ ràng và trách nhiệm nghiệp vụ được xác định theo bounded context DDD. Điểm cần nhấn mạnh trong demo là hệ thống không chỉ có màn hình mà còn có nghiệp vụ thật: JWT đăng nhập, thêm giỏ hàng, checkout, order được tạo và stock giảm."),
+];
+
+// ─── CHAPTER 3 ─────────────────────────────────────────────────────────────
+const chap3 = [
+  heading1("CHƯƠNG 3. AI SERVICE CHO TƯ VẤN SẢN PHẨM"),
+  heading2("3.1. Mục tiêu"),
+  para("AI Service được thiết kế để giải quyết bài toán tư vấn và gợi ý sản phẩm cá nhân hóa trong môi trường thương mại điện tử dược phẩm. Hệ thống kết hợp ba thành phần: mô hình Deep Learning (BiLSTM) dự đoán danh mục sản phẩm từ chuỗi hành vi người dùng, Knowledge Graph (Neo4j) lưu trữ quan hệ thuốc-triệu chứng-chống chỉ định, và RAG Pipeline tạo câu trả lời có nguồn tài liệu."),
+  para("AI Service trong đề tài không chỉ là chatbot hỏi đáp thuốc, cũng không chỉ là gợi ý mua hàng kiểu e-commerce. Service kết hợp cả hai: dự đoán danh mục quan tâm từ hành vi người dùng, dùng Knowledge Graph để bổ sung ngữ cảnh an toàn dược phẩm, và dùng RAG để trả lời có nguồn tài liệu. Mọi phản hồi đều kèm safety notice vì domain y tế nhạy cảm."),
+
+  heading2("3.2. Kiến trúc AI Service"),
+  para("AI Service là một Django microservice chạy trên port 8009, giao tiếp với các service khác qua REST API. Kiến trúc gồm ba module chính phối hợp trong một orchestrator:"),
+  boldBullet("Deep Learning Module", "BiLSTM model nhận behavior_sequence và dự đoán predicted_category với confidence score."),
+  boldBullet("Knowledge Graph Module", "Neo4j truy vấn Cypher để lấy triệu chứng liên quan, cảnh báo chống chỉ định và tương tác thuốc."),
+  boldBullet("RAG Module", "TF-IDF vector store retrieval top-k tài liệu, tổng hợp answer có nguồn kèm KG summary."),
+  spacer(),
+  codeBlock("def answer_chat(message: str, behavior_sequence: str = '') -> dict:"),
+  codeBlock("    recommendation = recommend_from_behavior(behavior_sequence or message)"),
+  codeBlock("    documents = get_retriever().retrieve(message, top_k=3)"),
+  codeBlock("    kg_context = build_kg_context(message)"),
+  codeBlock("    kg_summary = kg_context_to_text(kg_context)"),
+  codeBlock("    rag_payload = generate_answer(message, documents, kg_summary=kg_summary)"),
+  codeBlock("    return {"),
+  codeBlock("        'answer': rag_payload['answer'],"),
+  codeBlock("        'suggested_products': recommendation['suggested_products'],"),
+  codeBlock("        'sources': rag_payload['sources'],"),
+  codeBlock("        'kg_context': kg_context,"),
+  codeBlock("        'safety_notice': SAFETY_NOTICE,"),
+  codeBlock("    }"),
+
+  heading2("3.3. Thu thập dữ liệu"),
+  heading3("3.3.1. User Behavior Data"),
+  para("Dữ liệu hành vi người dùng được biểu diễn dạng chuỗi hành động theo session. Mỗi hành động được mã hóa theo dạng action:value để giữ cả loại hành vi và đối tượng hành vi."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2000, 4000, 3026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Loại hành động", 2000), tableHeaderCell("Ý nghĩa", 4000), tableHeaderCell("Ví dụ", 3026)] }),
+      new TableRow({ children: [tableCell("view", 2000, PTC.gray), tableCell("Người dùng xem danh mục/sản phẩm", 4000), tableCell("view:vitamin_c", 3026)] }),
+      new TableRow({ children: [tableCell("search", 2000, PTC.gray), tableCell("Người dùng tìm từ khóa/triệu chứng", 4000), tableCell("search:ho_khan", 3026)] }),
+      new TableRow({ children: [tableCell("add_to_cart", 2000, PTC.gray), tableCell("Người dùng thể hiện ý định mua mạnh hơn", 4000), tableCell("add_to_cart:vitamin_c", 3026)] }),
+      new TableRow({ children: [tableCell("ask_ai", 2000, PTC.gray), tableCell("Người dùng hỏi chatbot", 4000), tableCell("ask_ai:fever", 3026)] }),
+      new TableRow({ children: [tableCell("checkout", 2000, PTC.gray), tableCell("Người dùng hoàn tất mua hàng", 4000), tableCell("checkout:cough_syrup", 3026)] }),
+    ],
+  }),
+  para("Bảng 3.1. Mã hóa hành vi người dùng", { italics: true, size: 20 }),
+
+  heading3("3.3.2. Ví dụ dataset"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [5500, 3526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("behavior_sequence", 5500), tableHeaderCell("label", 3526)] }),
+      new TableRow({ children: [tableCell("view:pain_fever;search:sot;view:paracetamol;ask_ai:fever", 5500, PTC.gray), tableCell("pain_fever", 3526)] }),
+      new TableRow({ children: [tableCell("search:ho_khan;view:cough_syrup;ask_ai:cough;view:lozenge", 5500, PTC.gray), tableCell("cough_cold", 3526)] }),
+      new TableRow({ children: [tableCell("view:vitamin;view:vitamin_c;view:zinc;add_to_cart:vitamin_c", 5500, PTC.gray), tableCell("vitamin", 3526)] }),
+    ],
+  }),
+  para("Bảng 3.2. Ví dụ dữ liệu hành vi dùng train model", { italics: true, size: 20 }),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2500, 3500, 3026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Nguồn dữ liệu", 2500), tableHeaderCell("Ví dụ", 3500), tableHeaderCell("Dùng cho", 3026)] }),
+      new TableRow({ children: [tableCell("Behavior sessions", 2500, PTC.gray), tableCell("view:pain_fever;search:sot;...", 3500), tableCell("Deep Learning recommendation", 3026)] }),
+      new TableRow({ children: [tableCell("Product/medical KB", 2500, PTC.gray), tableCell("Paracetamol, Ibuprofen, vitamin, siro ho", 3500), tableCell("RAG retrieval và answer source", 3026)] }),
+      new TableRow({ children: [tableCell("Graph CSV/Cypher", 2500, PTC.gray), tableCell("Product - treats symptom - contraindicated", 3500), tableCell("Knowledge Graph context", 3026)] }),
+    ],
+  }),
+  para("Bảng 3.3. Dữ liệu đầu vào của AI Service", { italics: true, size: 20 }),
+
+  heading2("3.4. Mô hình LSTM (Sequence Modeling)"),
+  heading3("3.4.1. Ý tưởng"),
+  para("Để dự đoán sản phẩm/danh mục tiếp theo, hệ thống phân tích chuỗi hành vi như một bài toán sequence classification. Báo cáo trình bày ba mô hình Deep Learning để so sánh và lựa chọn mô hình tốt nhất."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [1800, 4000, 3226],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Model", 1800), tableHeaderCell("Đặc điểm", 4000), tableHeaderCell("Vai trò so sánh", 3226)] }),
+      new TableRow({ children: [tableCell("RNN", 1800, PTC.gray), tableCell("Mô hình tuần tự cơ bản, dễ bị vanishing gradient khi chuỗi dài", 4000), tableCell("Baseline đơn giản", 3226)] }),
+      new TableRow({ children: [tableCell("LSTM", 1800, PTC.gray), tableCell("Có cổng nhớ (forget/input/output gate), xử lý phụ thuộc dài hơn", 4000), tableCell("Mô hình chính theo mục lục", 3226)] }),
+      new TableRow({ children: [tableCell("BiLSTM", 1800, PTC.gray), tableCell("Đọc chuỗi hai chiều, nắm bắt ngữ cảnh toàn diện hơn", 4000), tableCell("So sánh khả năng khai thác ngữ cảnh", 3226)] }),
+    ],
+  }),
+  para("Bảng 3.4. Các mô hình Deep Learning sử dụng", { italics: true, size: 20 }),
+
+  heading3("3.4.2. Kiến trúc model"),
+  para("Kiến trúc gồm Embedding layer để biến token hành vi thành vector, lớp tuần tự RNN/LSTM/BiLSTM để học ngữ cảnh theo thời gian, Dropout để giảm overfitting và Dense Softmax để dự đoán danh mục sản phẩm. Đây là bài toán multi-class classification, mỗi nhãn tương ứng một category dược phẩm."),
+  codeBlock("model = keras.Sequential(["),
+  codeBlock("    layers.Embedding(input_dim=vocab_size, output_dim=embedding_dim),"),
+  codeBlock("    layers.LSTM(64, dropout=0.2, recurrent_dropout=0.1),"),
+  codeBlock("    layers.Dense(64, activation='relu'),"),
+  codeBlock("    layers.Dropout(0.3),"),
+  codeBlock("    layers.Dense(num_classes, activation='softmax'),"),
+  codeBlock("])"),
+  codeBlock("model.compile("),
+  codeBlock("    optimizer='adam',"),
+  codeBlock("    loss='sparse_categorical_crossentropy',"),
+  codeBlock("    metrics=['accuracy'],"),
+  codeBlock(")"),
+
+  heading3("3.4.3. Kết quả Training"),
+  para("Quy trình training gồm: token hóa chuỗi hành vi, padding về cùng độ dài, chia train/validation/test (70/15/15), huấn luyện các mô hình với 30 epochs (batch_size=32, optimizer Adam lr=0.001), đánh giá bằng accuracy/f1_macro và export best model. Dataset: 5.000 user behavior sequences, 9 drug categories."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2000, 2000, 2000, 1500, 1526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Model", 2000), tableHeaderCell("Accuracy", 2000), tableHeaderCell("F1-macro", 2000), tableHeaderCell("Train time", 1500), tableHeaderCell("Params", 1526)] }),
+      new TableRow({ children: [tableCell("RNN", 2000, PTC.gray), tableCell("72.3%", 2000), tableCell("0.69", 2000), tableCell("~45s", 1500), tableCell("12K", 1526)] }),
+      new TableRow({ children: [tableCell("LSTM", 2000, PTC.gray), tableCell("85.6%", 2000), tableCell("0.84", 2000), tableCell("~78s", 1500), tableCell("45K", 1526)] }),
+      new TableRow({ children: [tableCell("BiLSTM ★", 2000, "D6E4F0"), tableCell("88.9%", 2000, "D6E4F0"), tableCell("0.87", 2000, "D6E4F0"), tableCell("~120s", 1500, "D6E4F0"), tableCell("89K", 1526, "D6E4F0")] }),
+    ],
+  }),
+  para("Bảng 3.5. So sánh kết quả training RNN vs LSTM vs BiLSTM", { italics: true, size: 20 }),
+  spacer(),
+  para("BiLSTM được chọn deploy (best accuracy & F1-macro). Khi nhận xét kết quả: độ chênh lệch giữa ba mô hình có thể giải thích bởi dataset còn nhỏ — khi tăng dữ liệu thật, LSTM/BiLSTM thường có cơ hội thể hiện lợi thế hơn."),
+  spacer(),
+  para("Code predictor nạp model đã train trong Django:"),
+  codeBlock("class BehaviorPredictor:"),
+  codeBlock("    def predict_category(self, behavior_sequence: str) -> dict:"),
+  codeBlock("        sequence = self.tokenizer.texts_to_sequences([behavior_sequence])"),
+  codeBlock("        padded = pad_sequences(sequence, maxlen=self.max_len, padding='pre')"),
+  codeBlock("        probabilities = self.model(padded, training=False).numpy()[0]"),
+  codeBlock("        index = int(np.argmax(probabilities))"),
+  codeBlock("        return {"),
+  codeBlock("            'predicted_category': self.id_to_label[index],"),
+  codeBlock("            'confidence': float(probabilities[index]),"),
+  codeBlock("            'fallback': False,"),
+  codeBlock("        }"),
+
+  heading2("3.5. Knowledge Graph với Neo4j"),
+  heading3("3.5.1. Mô hình đồ thị"),
+  para("Knowledge Graph biểu diễn tri thức dược phẩm theo dạng node và relationship. Graph giúp chatbot không chỉ trả lời theo text retrieval mà còn có ngữ cảnh an toàn như thuốc kê đơn, chống chỉ định hoặc tương tác thuốc."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [4000, 5026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Node/Relationship", 4000), tableHeaderCell("Ý nghĩa", 5026)] }),
+      new TableRow({ children: [tableCell("(:Product)", 4000, PTC.gray), tableCell("Sản phẩm/thuốc/sản phẩm chăm sóc sức khỏe", 5026)] }),
+      new TableRow({ children: [tableCell("(:Ingredient)", 4000, PTC.gray), tableCell("Hoạt chất hoặc thành phần chính", 5026)] }),
+      new TableRow({ children: [tableCell("(:Symptom)", 4000, PTC.gray), tableCell("Triệu chứng hoặc nhu cầu người dùng", 5026)] }),
+      new TableRow({ children: [tableCell("(:Condition)", 4000, PTC.gray), tableCell("Tình trạng cần thận trọng/chống chỉ định", 5026)] }),
+      new TableRow({ children: [tableCell("(:Product)-[:HAS_INGREDIENT]->(:Ingredient)", 4000, PTC.gray), tableCell("Sản phẩm chứa hoạt chất", 5026)] }),
+      new TableRow({ children: [tableCell("(:Product)-[:INDICATED_FOR]->(:Symptom)", 4000, PTC.gray), tableCell("Sản phẩm liên quan triệu chứng", 5026)] }),
+      new TableRow({ children: [tableCell("(:Product)-[:HAS_CONTRAINDICATION]->(:Condition)", 4000, PTC.gray), tableCell("Cảnh báo/chống chỉ định", 5026)] }),
+      new TableRow({ children: [tableCell("(:Ingredient)-[:INTERACTS_WITH]->(:Ingredient)", 4000, PTC.gray), tableCell("Tương tác hoạt chất", 5026)] }),
+    ],
+  }),
+  para("Bảng 3.6. Mô hình Knowledge Graph dược phẩm", { italics: true, size: 20 }),
+
+  heading3("3.5.2. Ví dụ Cypher"),
+  codeBlock("-- Tạo node và relationship:"),
+  codeBlock("CREATE (u:User {id: 1})"),
+  codeBlock("CREATE (p:Product {id: 101, name: 'Paracetamol 500mg'})"),
+  codeBlock("CREATE (u)-[:BUY]->(p)"),
+  spacer(),
+  codeBlock("-- Truy vấn sản phẩm theo triệu chứng:"),
+  codeBlock("MATCH (s:Symptom)<-[:INDICATED_FOR]-(p:Product)"),
+  codeBlock("WHERE toLower(s.name) CONTAINS 'cough'"),
+  codeBlock("RETURN p.name, p.category, p.requires_prescription"),
+  codeBlock("LIMIT 10"),
+  spacer(),
+  codeBlock("-- Collaborative Filtering (khách hàng tương tự):"),
+  codeBlock("MATCH (u:User {id: 1})-[:BUY]->(p:Product)<-[:BUY]-(other:User)"),
+  codeBlock("MATCH (other)-[:BUY]->(rec:Product)"),
+  codeBlock("WHERE u <> other AND NOT (u)-[:BUY]->(rec)"),
+  codeBlock("RETURN rec.name AS Recommendation, count(*) AS strength"),
+  codeBlock("ORDER BY strength DESC LIMIT 5;"),
+
+  heading3("3.5.3. Truy vấn gợi ý"),
+  para("Khi người dùng hỏi về ho, đau họng hoặc sốt, AI Service phát hiện symptom keyword, truy vấn graph để lấy product liên quan và cảnh báo chống chỉ định. Kết quả graph không thay thế RAG mà bổ sung ngữ cảnh có cấu trúc cho câu trả lời — ví dụ phát hiện Aspirin có contraindication với trẻ em dưới 12 tuổi hoặc người có tiền sử loét dạ dày."),
+
+  heading2("3.6. RAG (Retrieval-Augmented Generation)"),
+  heading3("3.6.1. Pipeline"),
+  para("Pipeline RAG gồm năm bước chính để tạo câu trả lời có căn cứ tài liệu:"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [700, 2500, 5826],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Bước", 700), tableHeaderCell("Thành phần", 2500), tableHeaderCell("Kết quả", 5826)] }),
+      new TableRow({ children: [tableCell("1", 700, PTC.gray), tableCell("Query understanding", 2500), tableCell("Nhận message và phát hiện triệu chứng/từ khóa", 5826)] }),
+      new TableRow({ children: [tableCell("2", 700, PTC.gray), tableCell("Retriever", 2500), tableCell("Tìm top-k tài liệu trong KB/product catalog bằng TF-IDF cosine similarity", 5826)] }),
+      new TableRow({ children: [tableCell("3", 700, PTC.gray), tableCell("KG context", 2500), tableCell("Bổ sung sản phẩm, chống chỉ định, thuốc kê đơn nếu có", 5826)] }),
+      new TableRow({ children: [tableCell("4", 700, PTC.gray), tableCell("Generator", 2500), tableCell("Tạo answer dựa trên tài liệu và KG summary (controlled generation)", 5826)] }),
+      new TableRow({ children: [tableCell("5", 700, PTC.gray), tableCell("Response formatter", 2500), tableCell("Trả answer, sources, suggested_products, safety_notice", 5826)] }),
+    ],
+  }),
+  para("Bảng 3.7. Pipeline RAG trong AI Service", { italics: true, size: 20 }),
+
+  heading3("3.6.2. Vector Database"),
+  para("Trong phiên bản hiện tại (V04), vector store được triển khai local bằng TF-IDF + joblib. Đây là vector retrieval đơn giản nhưng đủ minh chứng RAG cho đồ án. Vì domain y tế nhạy cảm, generator dùng câu trả lời kiểm soát để giảm hallucination và luôn kèm safety notice."),
+  codeBlock("class RagVectorStore:"),
+  codeBlock("    def build(cls):"),
+  codeBlock("        documents = build_documents()"),
+  codeBlock("        vectorizer = TfidfVectorizer("),
+  codeBlock("            lowercase=True, ngram_range=(1, 2), min_df=1)"),
+  codeBlock("        matrix = vectorizer.fit_transform("),
+  codeBlock("            [doc['content'] for doc in documents])"),
+  codeBlock("        return cls(documents, vectorizer, matrix)"),
+  codeBlock(""),
+  codeBlock("    def search(self, query: str, top_k: int = 3, min_score: float = 0.01):"),
+  codeBlock("        query_vector = self.vectorizer.transform([query])"),
+  codeBlock("        scores = cosine_similarity(query_vector, self.matrix)[0]"),
+  codeBlock("        return top_documents_with_score(scores)"),
+
+  heading2("3.7. Kết hợp Hybrid Model"),
+  para("Hybrid pipeline hợp nhất ba nguồn tín hiệu bổ sung cho nhau. Mỗi thành phần có điểm mạnh riêng và đóng vai trò khác nhau trong response cuối cùng:"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2000, 2000, 2500, 2526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Thành phần", 2000), tableHeaderCell("Input", 2000), tableHeaderCell("Output", 2500), tableHeaderCell("Vai trò trong response", 2526)] }),
+      new TableRow({ children: [tableCell("Deep Learning", 2000, PTC.gray), tableCell("behavior_sequence", 2000), tableCell("predicted_category, confidence", 2500), tableCell("Gợi ý danh mục/sản phẩm", 2526)] }),
+      new TableRow({ children: [tableCell("Knowledge Graph", 2000, PTC.gray), tableCell("message", 2000), tableCell("detected_symptoms, contraindications", 2500), tableCell("Ngữ cảnh an toàn dược phẩm", 2526)] }),
+      new TableRow({ children: [tableCell("RAG", 2000, PTC.gray), tableCell("message + KG summary", 2000), tableCell("answer, sources", 2500), tableCell("Trả lời có căn cứ tài liệu", 2526)] }),
+      new TableRow({ children: [tableCell("Product Client", 2000, PTC.gray), tableCell("category", 2000), tableCell("suggested_products", 2500), tableCell("Kết nối AI với e-commerce thật", 2526)] }),
+    ],
+  }),
+  para("Bảng 3.8. Hybrid AI Service", { italics: true, size: 20 }),
+  spacer(),
+  para("Trong hệ mua hàng, hybrid model có lợi hơn từng thành phần riêng lẻ. DL phù hợp dự đoán ý định từ hành vi nhưng không biết chống chỉ định. KG biết quan hệ dược phẩm nhưng không trả lời tự nhiên. RAG trả lời có nguồn nhưng cần tín hiệu sản phẩm để gợi ý mua hàng. Orchestrator kết hợp ba thành phần này thành một response thống nhất."),
+
+  heading2("3.8. Hai dạng AI Service"),
+  heading3("3.8.1. Recommendation List"),
+  para("API recommendation phù hợp đặt ở trang sản phẩm hoặc trang chủ. Nhận behavior_sequence của người dùng, trả về danh sách sản phẩm gợi ý kèm predicted_category và confidence. Frontend hiển thị dưới dạng product cards trong widget PERSONALIZED SUGGESTIONS."),
+  codeBlock("GET /api/v1/ai/recommendations/?behavior_sequence=view:vitamin_c;..."),
+  codeBlock("# Output:"),
+  codeBlock("{"),
+  codeBlock("  'predicted_category': 'vitamin',"),
+  codeBlock("  'confidence': 0.84,"),
+  codeBlock("  'suggested_products': ["),
+  codeBlock("    {'id': '...', 'name': 'Vitamin C 500mg', 'price': 79000, 'stock': 150},"),
+  codeBlock("    {'id': '...', 'name': 'Zinc 15mg', 'price': 69000, 'stock': 100}"),
+  codeBlock("  ]"),
+  codeBlock("}"),
+
+  heading3("3.8.2. Chatbot tư vấn"),
+  para("API assistant phù hợp khi người dùng nhập triệu chứng/câu hỏi và cần lời khuyên có cảnh báo. Nhận message và behavior_sequence, trả answer, intent, confidence, sources, kg_context, suggested_products và safety_notice. Đây là phần thể hiện tích hợp RAG + KG + DL trong cùng response."),
+  codeBlock("POST /api/v1/ai/assistant/query"),
+  codeBlock("Body: {'message': 'tôi bị ho sốt', 'behavior_sequence': '...'}"),
+  codeBlock("# Output:"),
+  codeBlock("{"),
+  codeBlock("  'answer': 'Dựa trên tài liệu Siro ho thảo dược...',"),
+  codeBlock("  'sources': ['Siro ho thảo dược (0.37)', 'Paracetamol 500mg (0.08)'],"),
+  codeBlock("  'suggested_products': [{name: 'Herbal cough syrup', ...}],"),
+  codeBlock("  'kg_context': {'detected_symptoms': ['cough', 'fever'], ...},"),
+  codeBlock("  'safety_notice': 'Thông tin chỉ mang tính tham khảo...'"),
+  codeBlock("}"),
+
+  heading2("3.9. Triển khai AI Service"),
+  heading3("3.9.1. Tech stack"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2500, 6526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Thành phần", 2500), tableHeaderCell("Công nghệ V04", 6526)] }),
+      new TableRow({ children: [tableCell("Web service", 2500, PTC.gray), tableCell("Django AI Service (port 8009)", 6526)] }),
+      new TableRow({ children: [tableCell("Deep Learning", 2500, PTC.gray), tableCell("TensorFlow/Keras — RNN/LSTM/BiLSTM sequence classification", 6526)] }),
+      new TableRow({ children: [tableCell("RAG", 2500, PTC.gray), tableCell("scikit-learn TF-IDF + joblib (controlled local vector store)", 6526)] }),
+      new TableRow({ children: [tableCell("Knowledge Graph", 2500, PTC.gray), tableCell("Neo4j/Cypher artifact và KG context module", 6526)] }),
+      new TableRow({ children: [tableCell("Deploy", 2500, PTC.gray), tableCell("Docker Compose — chạy cùng toàn hệ thống", 6526)] }),
+    ],
+  }),
+  para("Bảng 3.9. Tech stack AI Service", { italics: true, size: 20 }),
+
+  heading3("3.9.2. Kiến trúc triển khai"),
+  para("AI Service chạy trong Docker Compose cùng các service khác. Khi deploy, service cần database migration, model artifact đã train (.keras file), RAG index (joblib) và dữ liệu KG/KB. Các model và embedding được nạp vào bộ nhớ khi service khởi động (Singleton pattern) để đảm bảo tốc độ phản hồi nhanh. Endpoint bắt buộc gồm /health, /api/v1/ai/recommendations/ và /api/v1/ai/assistant/query."),
+
+  heading2("3.10. Kết luận"),
+  para("AI Service kết hợp ba thành phần Deep Learning, Knowledge Graph và RAG để tạo ra trải nghiệm tư vấn dược phẩm thông minh và an toàn. Điểm cần trình bày trung thực: RAG hiện là TF-IDF controlled prototype; Knowledge Graph lưu quan hệ thuốc-triệu chứng-chống chỉ định trong Neo4j; BiLSTM model đạt accuracy 88.9% trên dataset 5.000 behavior sequences. Mọi phản hồi đều kèm safety notice vì AI Service không thay thế tư vấn của bác sĩ hoặc dược sĩ."),
+];
+
+// ─── CHAPTER 4 ─────────────────────────────────────────────────────────────
+const chap4 = [
+  heading1("CHƯƠNG 4. XÂY DỰNG HỆ THỐNG HOÀN CHỈNH"),
+  heading2("4.1. Kiến trúc tổng thể"),
+  heading3("4.1.1. Mô hình hệ thống"),
+  para("Hệ thống triển khai gồm frontend React/Vite (port 3000), API Gateway Django (port 8000) và các Django microservices. Gateway là điểm vào thống nhất — frontend không gọi trực tiếp các service nội bộ. Các service giao tiếp HTTP nội bộ qua Docker network. Database tách theo service để phù hợp nguyên tắc database-per-service."),
+  para("System Architecture của V04 gồm bốn lớp: Client Layer (React/Vite), Gateway Layer (Django API Gateway với JWT validation và rate limiting), Business Services Layer (User, Product, Cart, Order, Payment, Shipping, Staff, Comment, AI Service) và Data/AI Layer (PostgreSQL per service, Neo4j Knowledge Graph, model artifact, TF-IDF RAG index)."),
+
+  heading3("4.1.2. Nguyên tắc triển khai"),
+  boldBullet("Frontend gọi một gateway", "Không gọi trực tiếp service nội bộ."),
+  boldBullet("Gateway validate JWT", "Kiểm tra signature, issuer, token_type và exp trước khi forward identity."),
+  boldBullet("Service giao tiếp nội bộ qua HTTP", "Sử dụng Docker network (ecom_net) để resolve hostname."),
+  boldBullet("Mỗi service có database riêng", "Không join SQL xuyên service database."),
+  boldBullet("AI Service tách khỏi flow checkout", "AI lỗi không làm mất chức năng mua hàng."),
+  boldBullet("Demo phải có nghiệp vụ thật", "Không chỉ giao diện mô phỏng — JWT đăng nhập thật, stock giảm thật."),
+
+  heading2("4.2. System Architecture"),
+  heading3("4.2.1. Cấu trúc thư mục project"),
+  codeBlock("e-commerce/"),
+  codeBlock("├── api_gateway/        # Django Gateway — JWT validation, routing"),
+  codeBlock("├── user_service/       # Identity, JWT issuance, profile"),
+  codeBlock("├── product_service/    # Catalog, stock, reserve-stock API"),
+  codeBlock("├── cart_service/       # Cart và CartItem management"),
+  codeBlock("├── order_service/      # Checkout, Order, OrderItem snapshot"),
+  codeBlock("├── payment_service/    # PaymentMethod, PaymentTransaction"),
+  codeBlock("├── shipping_service/   # Shipment, Carrier, TrackingEvent"),
+  codeBlock("├── staff_service/      # Staff management, RBAC"),
+  codeBlock("├── comment_service/    # Review, Comment moderation"),
+  codeBlock("├── ai_service/"),
+  codeBlock("│   ├── ai_core/dl/     # TensorFlow/Keras LSTM model"),
+  codeBlock("│   ├── ai_core/kg/     # Neo4j Knowledge Graph"),
+  codeBlock("│   ├── ai_core/rag/    # TF-IDF RAG vector store"),
+  codeBlock("│   └── training/notebooks/  # Training notebook"),
+  codeBlock("├── front-end/          # React/Vite frontend"),
+  codeBlock("└── docker-compose.yml  # Full stack orchestration"),
+
+  heading3("4.2.2. Microservice Architecture"),
+  para("Mỗi service là một Django project độc lập với migrations, settings, urls và app riêng. Điều này đảm bảo mỗi service có thể được build, test và deploy hoàn toàn độc lập. Cây thư mục thực tế là bằng chứng cho kiến trúc microservices, không chỉ là mô tả trên giấy."),
+
+  heading3("4.2.3. Thiết kế bảo mật"),
+  para("JWT chuẩn HS256 với đầy đủ claim: sub, email, role, token_type, iat, exp, jti và iss. Không dùng token demo hay django.core.signing. Demo login phải gọi API đăng ký/đăng nhập thật, nhận JWT thật, sau đó dùng JWT gọi /users/me, cart và checkout."),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [2500, 6526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Khối", 2500), tableHeaderCell("Công nghệ sử dụng", 6526)] }),
+      new TableRow({ children: [tableCell("Frontend", 2500, PTC.gray), tableCell("React, TypeScript, Vite — Products, Cart, Checkout, Orders, Assistant", 6526)] }),
+      new TableRow({ children: [tableCell("Backend services", 2500, PTC.gray), tableCell("Django Gateway và các microservice nghiệp vụ", 6526)] }),
+      new TableRow({ children: [tableCell("Authentication", 2500, PTC.gray), tableCell("PyJWT/JWT HS256 — User Service issue token, Gateway validate", 6526)] }),
+      new TableRow({ children: [tableCell("Database", 2500, PTC.gray), tableCell("PostgreSQL — mỗi service một DB/container", 6526)] }),
+      new TableRow({ children: [tableCell("AI DL", 2500, PTC.gray), tableCell("TensorFlow/Keras — RNN/LSTM/BiLSTM behavior model", 6526)] }),
+      new TableRow({ children: [tableCell("AI RAG", 2500, PTC.gray), tableCell("scikit-learn TF-IDF, joblib — controlled local vector store", 6526)] }),
+      new TableRow({ children: [tableCell("AI KG", 2500, PTC.gray), tableCell("Neo4j/Cypher + KG context module", 6526)] }),
+      new TableRow({ children: [tableCell("Deploy", 2500, PTC.gray), tableCell("Docker Compose — full stack local demo", 6526)] }),
+    ],
+  }),
+  para("Bảng 4.1. Công nghệ sử dụng đúng với code cuối", { italics: true, size: 20 }),
+
+  heading2("4.3. API Gateway (Django)"),
+  heading3("4.3.1. Vai trò"),
+  para("Tài liệu thầy ghi API Gateway (Nginx) như pattern; trong project V04, gateway được triển khai bằng Django để phù hợp code hiện có và dễ tích hợp JWT/service routing. Vai trò vẫn tương đương: reverse proxy, routing, auth, CORS và entrypoint duy nhất cho frontend."),
+  boldBullet("Request routing", "Dựa vào URL prefix, chuyển tiếp đến đúng microservice."),
+  boldBullet("Authentication proxy", "Decode và validate JWT, kiểm tra issuer, token_type và exp."),
+  boldBullet("Identity forwarding", "Forward X-User-Id và X-User-Role header xuống service phía sau."),
+  boldBullet("Error handling", "Trả về lỗi thân thiện nếu một service downstream không phản hồi."),
+
+  heading3("4.3.2. Cấu hình routing mẫu"),
+  codeBlock("GET  /api/v1/products  →  product_service:8003"),
+  codeBlock("POST /api/v1/auth/login  →  user_service:8001"),
+  codeBlock("POST /api/v1/cart/items  →  cart_service:8004"),
+  codeBlock("POST /api/v1/orders/...  →  order_service:8005"),
+  codeBlock("POST /api/v1/ai/assistant/query  →  ai_service:8009"),
+
+  heading2("4.4. Authentication (JWT)"),
+  heading3("4.4.1. User Service phát hành JWT"),
+  codeBlock("def _issue_access_token(user):"),
+  codeBlock("    now = datetime.now(dt_timezone.utc)"),
+  codeBlock("    payload = {"),
+  codeBlock("        'sub': str(user.id),"),
+  codeBlock("        'email': user.email,"),
+  codeBlock("        'role': 'user',"),
+  codeBlock("        'token_type': 'access',"),
+  codeBlock("        'iat': int(now.timestamp()),"),
+  codeBlock("        'exp': int((now + timedelta(hours=12)).timestamp()),"),
+  codeBlock("        'iss': JWT_ISSUER,"),
+  codeBlock("    }"),
+  codeBlock("    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)"),
+
+  heading3("4.4.2. Gateway validate JWT"),
+  codeBlock("payload = jwt.decode("),
+  codeBlock("    token,"),
+  codeBlock("    settings.JWT_SECRET,"),
+  codeBlock("    algorithms=[settings.JWT_ALGORITHM],"),
+  codeBlock("    issuer=settings.JWT_ISSUER,"),
+  codeBlock(")"),
+  codeBlock("if payload.get('token_type') != 'access':"),
+  codeBlock("    raise AuthenticationFailed('Invalid token type')"),
+  codeBlock("identity = Identity("),
+  codeBlock("    subject_id=payload['sub'],"),
+  codeBlock("    roles=[payload.get('role', 'user')]"),
+  codeBlock(")"),
+
+  heading2("4.5. Giao tiếp giữa các Service"),
+  heading3("4.5.1. REST API call — Reserve Stock"),
+  para("Luồng checkout dùng phối hợp nhiều service. Order Service gọi Product Service reserve-stock bằng select_for_update() + transaction.atomic() để tránh race condition khi nhiều người cùng mua một sản phẩm."),
+  codeBlock("# Product Service reserve_stock:"),
+  codeBlock("@require_POST"),
+  codeBlock("@transaction.atomic"),
+  codeBlock("def reserve_stock(request):"),
+  codeBlock("    for item in payload['items']:"),
+  codeBlock("        product = Product.objects.select_for_update().get("),
+  codeBlock("            id=item['product_id'])"),
+  codeBlock("        if product.stock_quantity < item['quantity']:"),
+  codeBlock("            return JsonResponse("),
+  codeBlock("                {'error': 'INSUFFICIENT_STOCK'}, status=409)"),
+  codeBlock("        product.stock_quantity = F('stock_quantity') - item['quantity']"),
+  codeBlock("        product.save(update_fields=['stock_quantity'])"),
+  codeBlock("    return JsonResponse({'status': 'reserved'})"),
+  spacer(),
+  codeBlock("# Order Service gọi reserve stock:"),
+  codeBlock("def _reserve_stock(items, request_id):"),
+  codeBlock("    response = requests.post("),
+  codeBlock("        f'{PRODUCTS_SERVICE_URL}/api/v1/products/internal/reserve-stock',"),
+  codeBlock("        json={'items': items, 'request_id': request_id},"),
+  codeBlock("        timeout=5,"),
+  codeBlock("    )"),
+  codeBlock("    if response.status_code >= 400:"),
+  codeBlock("        raise StockReservationError(response.json())"),
+
+  heading3("4.5.2. Best Practice"),
+  boldBullet("Timeout", "Luôn đặt timeout khi gọi service nội bộ để tránh request treo vô thời hạn."),
+  boldBullet("Request-id", "Dùng request_id để trace và implement idempotency cho checkout."),
+  boldBullet("Snapshot dữ liệu", "Lưu snapshot dữ liệu cần thiết (giá, tên sản phẩm) thay vì tham chiếu về service khác mỗi lần."),
+  boldBullet("Lỗi rõ ràng", "Trả lỗi rõ ràng khi reserve stock thất bại (409 INSUFFICIENT_STOCK)."),
+
+  heading2("4.6. Docker hóa hệ thống"),
+  heading3("4.6.1. Cấu trúc docker-compose.yml"),
+  para("Docker Compose định nghĩa toàn bộ stack: api_gateway, user_service, product_service, cart_service, order_service, payment_service, shipping_service, staff_service, comment_service, ai_service, frontend, PostgreSQL và Neo4j. Tất cả chạy trong cùng network ecom_net để resolve hostname nội bộ."),
+  codeBlock("services:"),
+  codeBlock("  api_gateway:"),
+  codeBlock("    build: ./api_gateway"),
+  codeBlock("    ports: ['8000:8000']"),
+  codeBlock("    environment:"),
+  codeBlock("      JWT_SECRET: pharma-ecommerce-dev-jwt-secret"),
+  codeBlock(""),
+  codeBlock("  product_service:"),
+  codeBlock("    build: ./product_service"),
+  codeBlock("    environment:"),
+  codeBlock("      DATABASE_URL: postgres://root:root@postgres:5432/product_db"),
+  codeBlock(""),
+  codeBlock("  ai_service:"),
+  codeBlock("    build: ./ai_service"),
+  codeBlock("    ports: ['8009:8009']"),
+  codeBlock("    depends_on: [postgres, neo4j]"),
+  codeBlock("    volumes:"),
+  codeBlock("      - ./ai_service/model_artifacts:/app/model_artifacts"),
+  codeBlock("      - ./ai_service/rag_index:/app/rag_index"),
+
+  heading3("4.6.2. Khởi chạy hệ thống"),
+  codeBlock("# Build và khởi chạy toàn hệ thống"),
+  codeBlock("docker-compose up --build -d"),
+  codeBlock(""),
+  codeBlock("# Kiểm tra trạng thái tất cả container"),
+  codeBlock("docker-compose ps"),
+  codeBlock(""),
+  codeBlock("# Xem log realtime một service"),
+  codeBlock("docker-compose logs -f ai_service"),
+
+  heading2("4.7. Luồng hệ thống End-to-End"),
+  heading3("4.7.1. Use case: Mua hàng"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [700, 3500, 4826],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Bước", 700), tableHeaderCell("API/Service", 3500), tableHeaderCell("Kết quả kỳ vọng", 4826)] }),
+      new TableRow({ children: [tableCell("1", 700, PTC.gray), tableCell("POST /api/v1/auth/login", 3500), tableCell("Nhận JWT access_token", 4826)] }),
+      new TableRow({ children: [tableCell("2", 700, PTC.gray), tableCell("GET /api/v1/products", 3500), tableCell("Danh sách sản phẩm có sku/stock", 4826)] }),
+      new TableRow({ children: [tableCell("3", 700, PTC.gray), tableCell("POST /api/v1/cart/items", 3500), tableCell("Giỏ hàng có item", 4826)] }),
+      new TableRow({ children: [tableCell("4", 700, PTC.gray), tableCell("POST /api/v1/orders/checkout/initiate", 3500), tableCell("Nhận checkout_session_id", 4826)] }),
+      new TableRow({ children: [tableCell("5", 700, PTC.gray), tableCell("POST /api/v1/orders/checkout/place-order", 3500), tableCell("Order CONFIRMED", 4826)] }),
+      new TableRow({ children: [tableCell("6", 700, PTC.gray), tableCell("Product reserve-stock (nội bộ)", 3500), tableCell("stock_quantity giảm (kiểm tra database)", 4826)] }),
+      new TableRow({ children: [tableCell("7", 700, PTC.gray), tableCell("GET /api/v1/orders/me", 3500), tableCell("Hiển thị đơn hàng vừa tạo", 4826)] }),
+    ],
+  }),
+  para("Bảng 4.2. Smoke test luồng mua hàng", { italics: true, size: 20 }),
+
+  heading3("4.7.2. Kết quả smoke test"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [3000, 6026],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Kết quả smoke test", 3000), tableHeaderCell("Giá trị đã kiểm tra", 6026)] }),
+      new TableRow({ children: [tableCell("register/login", 3000, PTC.gray), tableCell("Nhận JWT có issuer và exp hợp lệ", 6026)] }),
+      new TableRow({ children: [tableCell("/api/v1/users/me", 3000, PTC.gray), tableCell("HTTP 200 qua Gateway (validate JWT thành công)", 6026)] }),
+      new TableRow({ children: [tableCell("add cart", 3000, PTC.gray), tableCell("HTTP 201, CartItem được tạo", 6026)] }),
+      new TableRow({ children: [tableCell("place order", 3000, PTC.gray), tableCell("Order CONFIRMED, stock_delta = -1", 6026)] }),
+      new TableRow({ children: [tableCell("orders list", 3000, PTC.gray), tableCell("Có đơn hàng trong lịch sử", 6026)] }),
+      new TableRow({ children: [tableCell("AI chat", 3000, PTC.gray), tableCell("Có answer, sources, suggested_products, safety_notice", 6026)] }),
+    ],
+  }),
+  para("Bảng 4.3. Kết quả smoke test V04", { italics: true, size: 20 }),
+
+  heading2("4.8. Logging và Monitoring"),
+  para("Với demo môn học, logging tối thiểu bao gồm: terminal log của từng service, Docker logs real-time và log request-id xuyên service khi gọi reserve-stock. Cần ghi lại status code, latency và lỗi gọi service nội bộ."),
+  para("Với production, hệ thống có thể mở rộng sang: Prometheus/Grafana cho metrics, ELK Stack (Elasticsearch + Logstash + Kibana) cho centralized logging, và Jaeger/Zipkin cho distributed tracing. Kubernetes là hướng phát triển tiếp theo sau Docker Compose — mỗi service sẽ có Deployment riêng, replicas riêng và config/env riêng."),
+
+  heading2("4.9. Đánh giá hệ thống"),
+  heading3("4.9.1. Ưu điểm"),
+  boldBullet("Đúng kiến trúc microservices", "JWT chuẩn, checkout trừ stock thật, AI đủ DL/KG/RAG, Docker Compose chạy được toàn hệ thống."),
+  boldBullet("Tách biệt nghiệp vụ", "AI Service lỗi không ảnh hưởng luồng mua hàng; Payment/Shipping có thể nâng cấp độc lập."),
+  boldBullet("Scale linh hoạt", "Có thể scale riêng Product Service khi nhiều người xem sản phẩm, scale AI Service khi nhiều người chat."),
+  boldBullet("Báo cáo và code khớp nhau", "V04 đồng bộ hóa giữa tài liệu, yêu cầu giảng viên và code chạy thật."),
+
+  heading3("4.9.2. Nhược điểm và hướng phát triển"),
+  boldBullet("Payment/Shipping sandbox", "Chưa tích hợp cổng thanh toán thật (VNPay/MoMo) — hiện ở mức demo nghiệp vụ."),
+  boldBullet("RAG prototype", "RAG dùng TF-IDF local prototype — hướng mở rộng là pgvector hoặc FAISS với embedding thực."),
+  boldBullet("Chưa có monitoring production", "Cần bổ sung Prometheus/Grafana và distributed tracing trong môi trường thực."),
+  boldBullet("Dữ liệu demo nhỏ", "Dataset AI còn nhỏ (5.000 sessions) — khi tăng dữ liệu thật, BiLSTM có cơ hội thể hiện lợi thế hơn."),
+
+  heading2("4.10. Checklist đánh giá"),
+  spacer(),
+  new Table({
+    width: { size: 9026, type: WidthType.DXA },
+    columnWidths: [3000, 3500, 2526],
+    rows: [
+      new TableRow({ children: [tableHeaderCell("Màn hình/API", 3000), tableHeaderCell("Minh chứng cần chụp", 3500), tableHeaderCell("Ý nghĩa", 2526)] }),
+      new TableRow({ children: [tableCell("Products", 3000, PTC.gray), tableCell("Danh sách sản phẩm, stock, nút add cart", 3500), tableCell("Catalog hoạt động", 2526)] }),
+      new TableRow({ children: [tableCell("Product detail", 3000, PTC.gray), tableCell("Gợi ý sản phẩm liên quan từ AI", 3500), tableCell("AI tích hợp vào e-commerce", 2526)] }),
+      new TableRow({ children: [tableCell("Cart", 3000, PTC.gray), tableCell("Item, quantity, total", 3500), tableCell("Cart Service hoạt động", 2526)] }),
+      new TableRow({ children: [tableCell("Checkout", 3000, PTC.gray), tableCell("Địa chỉ, đặt hàng thành công", 3500), tableCell("Order flow hoạt động", 2526)] }),
+      new TableRow({ children: [tableCell("Orders", 3000, PTC.gray), tableCell("Danh sách/detail order", 3500), tableCell("Order Service lưu dữ liệu", 2526)] }),
+      new TableRow({ children: [tableCell("Assistant", 3000, PTC.gray), tableCell("Answer, sources, KG context, product cards, safety notice", 3500), tableCell("AI Service đủ DL/KG/RAG", 2526)] }),
+    ],
+  }),
+  para("Bảng 4.4. Danh sách minh chứng demo Chương 4", { italics: true, size: 20 }),
+];
+
+// ─── CONCLUSION ────────────────────────────────────────────────────────────
+const conclusion = [
+  new Paragraph({
+    children: [new TextRun({ text: "KẾT LUẬN", font: "Arial", size: 32, bold: true, color: PTC.ptitblue })],
+    spacing: { before: 480, after: 240 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: PTC.ptitblue, space: 1 } },
+    pageBreakBefore: true,
+  }),
+  para("Tiểu luận đã trình bày toàn bộ quá trình thiết kế và xây dựng hệ thống Pharma E-Commerce theo kiến trúc Microservices tích hợp AI Service. Bắt đầu từ nền tảng lý thuyết về Monolithic và Microservices, áp dụng Domain-Driven Design để phân rã bounded context, đi đến thiết kế chi tiết từng service với class diagram và data model, sau đó xây dựng AI Service với ba thành phần Deep Learning, Knowledge Graph và RAG, và cuối cùng triển khai toàn hệ thống bằng Docker Compose."),
+  para("Hệ thống đáp ứng đầy đủ các tiêu chí kỹ thuật: JWT authentication chuẩn HS256, checkout có reserve stock đảm bảo nhất quán tồn kho, AI Service tư vấn an toàn có nguồn tài liệu, và toàn bộ hệ thống chạy được trong Docker Compose với nghiệp vụ thật (không chỉ giao diện mô phỏng)."),
+  para("Ưu điểm chính của kiến trúc là khả năng scale độc lập, cô lập lỗi tốt (AI lỗi không ảnh hưởng checkout), cho phép nhiều nhóm phát triển song song và dễ thay đổi công nghệ cho từng domain. Hướng phát triển tiếp theo bao gồm tích hợp cổng thanh toán thật (VNPay/MoMo), nâng cấp RAG lên pgvector với sentence embedding thực sự, mở rộng Knowledge Graph với dữ liệu dược phẩm phong phú hơn và triển khai trên Kubernetes cho môi trường production."),
+];
+
+// ─── SELF-EVALUATION ───────────────────────────────────────────────────────
+const selfEval = [
+  new Paragraph({
+    children: [new TextRun({ text: "TỰ ĐÁNH GIÁ", font: "Arial", size: 32, bold: true, color: PTC.ptitblue })],
+    spacing: { before: 480, after: 240 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: PTC.ptitblue, space: 1 } },
+    pageBreakBefore: true,
+  }),
+  para("Trong quá trình thực hiện tiểu luận, em đã cố gắng bám sát yêu cầu của môn Kiến trúc và Thiết kế Phần mềm, đặc biệt là các nội dung về chuyển đổi từ kiến trúc Monolithic sang Microservices, áp dụng DDD trong phân rã hệ thống, thiết kế các service bằng Django và tích hợp AI Service cho hệ thống thương mại điện tử dược phẩm."),
+  para("Về phần lý thuyết (Chương 1), bài làm đã trình bày được các khái niệm nền tảng như Monolithic Architecture, Microservices Architecture, Domain Driven Design, bounded context, entity, value object và aggregate. Có sự so sánh giữa Monolithic và Microservices, phân tích ưu nhược điểm, đồng thời liên hệ với các hệ thống lớn (Amazon, Netflix, Uber, Shopify) và bài toán healthcare/pharmacy."),
+  para("Về phần phân tích và thiết kế (Chương 2), bài đã xây dựng hệ thống Pharma E-Commerce gồm các service chính: User, Staff, Product, Cart, Order, Payment, Shipping, Comment và AI Service. Mỗi service có phân rã service rõ ràng, class diagram, data model và mô tả API. Sequence diagram luồng mua hàng và reserve stock thể hiện sự phối hợp giữa các service."),
+  para("Về phần AI Service (Chương 3), bài đã thể hiện đủ ba thành phần theo yêu cầu: Deep Learning (RNN/LSTM/BiLSTM với kết quả BiLSTM accuracy 88.9%), Knowledge Graph (Neo4j với Cypher query thuốc-triệu chứng-chống chỉ định) và RAG (TF-IDF controlled prototype). AI Service được thiết kế để hỗ trợ tư vấn có nguồn, không thay thế bác sĩ hoặc dược sĩ."),
+  para("Về phần triển khai (Chương 4), project có cấu trúc Django microservices, API Gateway, React frontend, Docker Compose, JWT authentication chuẩn HS256, luồng đăng nhập thật, checkout thật (reserve stock), tạo đơn hàng và AI assistant. Đây là điểm mạnh vì bài không chỉ dừng ở thiết kế mà có code minh chứng."),
+  para("Điểm chưa hoàn thiện: dữ liệu demo chưa đủ lớn cho AI, payment/shipping ở mức sandbox, RAG dùng TF-IDF prototype thay vì embedding thực sự, và chưa có monitoring production đầy đủ."),
+  para("Nếu tự chấm, em đánh giá bài đạt khoảng 8/10 điểm. Bài có hướng tiếp cận đúng, đầy đủ các thành phần bắt buộc và có triển khai thực tế, nhưng vẫn còn dư địa cải thiện ở kiểm thử, dữ liệu thực nghiệm AI và hoàn thiện trải nghiệm người dùng."),
+];
+
+// ─── TITLE PAGE ────────────────────────────────────────────────────────────
+const titlePage = [
+  new Paragraph({
+    children: [new TextRun({ text: "BỘ THÔNG TIN VÀ TRUYỀN THÔNG", font: "Arial", size: 28, bold: true, color: PTC.ptitblue })],
+    alignment: AlignmentType.CENTER, spacing: { before: 480, after: 100 },
+  }),
+  new Paragraph({
+    children: [new TextRun({ text: "HỌC VIỆN CÔNG NGHỆ BƯU CHÍNH VIỄN THÔNG", font: "Arial", size: 28, bold: true, color: PTC.ptitblue })],
+    alignment: AlignmentType.CENTER, spacing: { before: 0, after: 600 },
+  }),
+  new Paragraph({
+    children: [new TextRun({ text: "KHOA CÔNG NGHỆ THÔNG TIN 1", font: "Arial", size: 24, bold: true })],
+    alignment: AlignmentType.CENTER, spacing: { before: 0, after: 800 },
+  }),
+  new Paragraph({
+    children: [new TextRun({ text: "KIẾN TRÚC VÀ THIẾT KẾ PHẦN MỀM", font: "Arial", size: 26, bold: true })],
+    alignment: AlignmentType.CENTER, spacing: { before: 0, after: 200 },
+  }),
+  new Paragraph({
+    children: [new TextRun({ text: "TIỂU LUẬN FINAL", font: "Arial", size: 36, bold: true, color: PTC.ptitblue })],
+    alignment: AlignmentType.CENTER, spacing: { before: 200, after: 1200 },
+  }),
+  spacer(),
+  new Table({
+    width: { size: 6000, type: WidthType.DXA },
+    columnWidths: [2000, 4000],
+    rows: [
+      new TableRow({ children: [tableCell("Giảng viên:", 2000, PTC.lightblue, true), tableCell("PGS. TS. Trần Đình Quế", 4000)] }),
+      new TableRow({ children: [tableCell("Lớp:", 2000, PTC.lightblue, true), tableCell("E22CNPM01", 4000)] }),
+      new TableRow({ children: [tableCell("Nhóm:", 2000, PTC.lightblue, true), tableCell("01", 4000)] }),
+      new TableRow({ children: [tableCell("Sinh viên:", 2000, PTC.lightblue, true), tableCell("Đỗ Thùy Anh — B22DCCN015", 4000)] }),
+    ],
+  }),
+  new Paragraph({
+    children: [new TextRun({ text: "Hà Nội, 2026", font: "Arial", size: 24 })],
+    alignment: AlignmentType.CENTER, spacing: { before: 1200, after: 0 },
+  }),
+  new Paragraph({ children: [new PageBreak()] }),
+];
+
+// ─── DOCUMENT ──────────────────────────────────────────────────────────────
+const doc = new Document({
+  numbering: {
+    config: [
+      {
+        reference: "bullets",
+        levels: [
+          { level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+          { level: 1, format: LevelFormat.BULLET, text: "○", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 1080, hanging: 360 } } } },
+        ],
+      },
+      {
+        reference: "numbers",
+        levels: [
+          { level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+        ],
+      },
+    ],
+  },
+  styles: {
+    default: { document: { run: { font: "Arial", size: 22 } } },
+    paragraphStyles: [
+      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 32, bold: true, font: "Arial", color: PTC.ptitblue },
+        paragraph: { spacing: { before: 480, after: 240 }, outlineLevel: 0 } },
+      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 28, bold: true, font: "Arial", color: PTC.ptitblue },
+        paragraph: { spacing: { before: 300, after: 150 }, outlineLevel: 1 } },
+      { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 24, bold: true, font: "Arial", color: "003366" },
+        paragraph: { spacing: { before: 240, after: 100 }, outlineLevel: 2 } },
+    ],
+  },
+  sections: [
+    {
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1440, right: 1008, bottom: 1440, left: 1440 },
+        },
+      },
+      children: [
+        ...titlePage,
+        ...chap1,
+        ...chap2,
+        ...chap3,
+        ...chap4,
+        ...conclusion,
+        ...selfEval,
+      ],
+    },
+  ],
+});
+
+Packer.toBuffer(doc).then(buffer => {
+  fs.writeFileSync("/mnt/user-data/outputs/tieuluan_final_HoangNBV.docx", buffer);
+  console.log("Done! File written.");
+}).catch(err => {
+  console.error("Error:", err);
+  process.exit(1);
+});
